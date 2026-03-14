@@ -1,0 +1,3299 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#F59E0B">
+<title>FieldPro — Construction Tool</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+<style>
+:root {
+  --bg: #0F1923;
+  --surface: #1A2535;
+  --card: #212E42;
+  --card2: #263348;
+  --border: #2D3F58;
+  --accent: #F59E0B;
+  --accent-dim: rgba(245,158,11,0.15);
+  --accent2: #3B82F6;
+  --success: #10B981;
+  --danger: #EF4444;
+  --warn: #F97316;
+  --text: #E2E8F0;
+  --text-muted: #7A90A8;
+  --text-dim: #4A6080;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --ff-head: 'Barlow Condensed', sans-serif;
+  --ff-body: 'DM Sans', sans-serif;
+  --ff-mono: 'DM Mono', monospace;
+  --nav-h: 64px;
+  --header-h: 56px;
+}
+[data-theme="light"] {
+  --bg: #F0F4F8;
+  --surface: #FFFFFF;
+  --card: #F8FAFB;
+  --card2: #EEF2F7;
+  --border: #D1DCE8;
+  --text: #0F1923;
+  --text-muted: #5A6F85;
+  --text-dim: #8FA3B5;
+  --shadow: 0 4px 24px rgba(0,0,0,0.1);
+}
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-tap-highlight-color: transparent; }
+body {
+  font-family: var(--ff-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+/* ── LAYOUT (mobile-first) ── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── MOBILE HEADER ── */
+#header {
+  height: var(--header-h);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 16px;
+  position: sticky; top: 0; z-index: 300;
+  gap: 12px;
+  flex-shrink: 0;
+}
+#header .logo {
+  font-family: var(--ff-head);
+  font-size: 22px; font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--accent);
+  line-height: 1;
+  flex: 1;
+}
+#header .logo span { color: var(--text-muted); font-weight: 400; }
+.header-actions { display: flex; gap: 8px; }
+.icon-btn {
+  width: 36px; height: 36px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; color: var(--text-muted); font-size: 16px;
+  transition: all .15s; flex-shrink: 0;
+}
+.icon-btn:hover { background: var(--card2); color: var(--accent); }
+
+/* ── CONTENT AREA (mobile) ── */
+#content {
+  flex: 1;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: calc(var(--nav-h) + 16px);
+  scroll-behavior: smooth;
+}
+/* Centred inner wrapper */
+.content-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 16px 16px 0;
+  overflow: visible;       /* never clip the scroll-tabs-wrap */
+  min-width: 0;
+}
+
+/* ── BOTTOM NAV (mobile default) ── */
+#bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: var(--nav-h);
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  z-index: 200;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer;
+  border: none; background: none;
+  color: var(--text-dim);
+  font-family: var(--ff-body);
+  font-size: 10px; font-weight: 500;
+  letter-spacing: .3px;
+  transition: all .15s;
+  padding: 8px 0;
+  position: relative;
+}
+.nav-btn .nav-icon { font-size: 20px; transition: transform .15s; }
+.nav-btn.active { color: var(--accent); }
+.nav-btn.active .nav-icon { transform: translateY(-2px); }
+.nav-btn.active::after {
+  content: '';
+  position: absolute; top: 0; left: 25%; right: 25%;
+  height: 2px; background: var(--accent);
+  border-radius: 0 0 4px 4px;
+}
+
+/* ── SIDEBAR OVERLAY (mobile — hidden by default) ── */
+#sidebar-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 400;
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s;
+}
+#sidebar-overlay.open { opacity: 1; pointer-events: all; }
+
+/* ── SIDEBAR (mobile slide-in, desktop static) ── */
+#sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: 240px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  z-index: 450;
+  display: flex; flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform .28s cubic-bezier(0.32,0.72,0,1);
+  overflow-y: auto;
+}
+#sidebar.open { transform: translateX(0); }
+
+.sidebar-logo {
+  font-family: var(--ff-head);
+  font-size: 26px; font-weight: 800;
+  color: var(--accent); letter-spacing: 1px;
+  padding: 22px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.sidebar-logo span { color: var(--text-muted); font-weight: 400; }
+.sidebar-close {
+  width: 28px; height: 28px;
+  background: var(--card2); border: none; border-radius: 50%;
+  color: var(--text-muted); cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-close:hover { color: var(--accent); }
+
+.sidebar-nav { flex: 1; padding: 12px 0; }
+.sidebar-nav-btn {
+  width: 100%; display: flex; align-items: center; gap: 12px;
+  padding: 11px 20px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-family: var(--ff-body);
+  font-size: 14px; font-weight: 500;
+  text-align: left; transition: all .15s;
+  position: relative; border-radius: 0;
+}
+.sidebar-nav-btn .nav-icon { font-size: 19px; }
+.sidebar-nav-btn:hover { background: var(--card); color: var(--text); }
+.sidebar-nav-btn.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+.sidebar-nav-btn.active::before {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 3px; background: var(--accent);
+  border-radius: 0 3px 3px 0;
+}
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: flex; gap: 8px;
+}
+
+/* ── DESKTOP (≥ 768px) ── */
+@media (min-width: 768px) {
+  #app {
+    flex-direction: row;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden; /* prevent page-level scroll; each column scrolls independently */
+  }
+
+  /* Hide mobile header & bottom nav */
+  #header { display: none; }
+  #bottom-nav { display: none; }
+
+  /* Sidebar: static full-height column */
+  #sidebar {
+    position: static;
+    transform: none !important;
+    flex-shrink: 0;
+    width: 220px;
+    height: 100%;          /* fills the 100vh #app container */
+    overflow-y: auto;
+    transition: width .25s cubic-bezier(0.32,0.72,0,1);
+  }
+  /* Sidebar hidable on desktop — collapse width only */
+  #sidebar.desktop-hidden {
+    width: 0;
+    overflow: hidden;
+    border: none;
+  }
+
+  /* No overlay needed on desktop */
+  #sidebar-overlay { display: none !important; }
+
+  /* Desktop toggle button visible */
+  #desktop-toggle { display: flex !important; }
+
+  /* Content: fills remaining space, independently scrollable */
+  #content {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    padding-bottom: 24px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+  .content-inner {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 28px 28px 0;
+  }
+  .form-row { grid-template-columns: 1fr 1fr 1fr; }
+  .form-row.two { grid-template-columns: 1fr 1fr; }
+}
+
+/* TABS */
+.tab { display: none; padding: 0; animation: fadeIn .2s ease; overflow: visible; }
+.tab.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* CARDS */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.card-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.card-icon {
+  width: 36px; height: 36px;
+  background: var(--accent-dim);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.card-title {
+  font-family: var(--ff-head);
+  font-size: 16px; font-weight: 700;
+  letter-spacing: .5px;
+  color: var(--text);
+  text-transform: uppercase;
+}
+.card-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+/* SECTION TITLE */
+.section-title {
+  font-family: var(--ff-head);
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 20px 0 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-title::after {
+  content: ''; flex: 1;
+  height: 1px; background: var(--border);
+}
+
+/* FORM ELEMENTS */
+.form-group { margin-bottom: 12px; }
+.form-label {
+  display: block;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: var(--ff-body);
+  font-size: 15px;
+  padding: 10px 14px;
+  transition: border-color .15s, box-shadow .15s;
+  appearance: none;
+  -webkit-appearance: none;
+}
+.form-input[type=number] {
+  font-family: var(--ff-mono);
+  font-size: 16px;
+  font-weight: 500;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.form-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237A90A8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; cursor: pointer; }
+.form-textarea { resize: vertical; min-height: 80px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+.input-with-unit { position: relative; }
+.input-unit {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  font-size: 12px; font-weight: 600; color: var(--accent);
+  font-family: var(--ff-mono); pointer-events: none;
+}
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 8px; border: none; border-radius: var(--radius);
+  font-family: var(--ff-head); font-size: 15px; font-weight: 700;
+  letter-spacing: .5px; text-transform: uppercase;
+  padding: 12px 20px; cursor: pointer;
+  transition: all .15s; white-space: nowrap;
+}
+.btn-primary {
+  background: var(--accent); color: #0F1923;
+  box-shadow: 0 4px 12px rgba(245,158,11,0.3);
+}
+.btn-primary:hover { background: #FBBF24; transform: translateY(-1px); }
+.btn-primary:active { transform: translateY(0); }
+.btn-secondary {
+  background: var(--card2); color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-secondary:hover { background: var(--border); }
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--danger); border: 1px solid rgba(239,68,68,0.3); }
+.btn-success { background: rgba(16,185,129,0.15); color: var(--success); border: 1px solid rgba(16,185,129,0.3); }
+.btn-sm { padding: 7px 12px; font-size: 12px; }
+.btn-lg { padding: 15px 28px; font-size: 17px; width: 100%; }
+.btn-icon { padding: 10px; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* RESULT BOX */
+.result-box {
+  background: var(--bg);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+.result-label { font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; font-weight: 600; }
+.result-value {
+  font-family: var(--ff-mono);
+  font-size: 28px; font-weight: 500;
+  color: var(--accent);
+  line-height: 1.1;
+}
+.result-value span { font-size: 14px; font-weight: 400; color: var(--text-muted); margin-left: 4px; }
+.result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.result-item { background: var(--card2); border-radius: 8px; padding: 10px 12px; }
+.result-item .ri-label { font-size: 10px; color: var(--text-dim); letter-spacing: .5px; text-transform: uppercase; font-weight: 600; margin-bottom: 3px; }
+.result-item .ri-val { font-family: var(--ff-mono); font-size: 15px; color: var(--text); font-weight: 500; }
+.formula-note { font-size: 11px; color: var(--text-dim); margin-top: 8px; font-family: var(--ff-mono); }
+
+/* TAGS / BADGES */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 8px; border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+  letter-spacing: .3px;
+}
+.badge-success { background: rgba(16,185,129,0.15); color: var(--success); }
+.badge-danger { background: rgba(239,68,68,0.15); color: var(--danger); }
+.badge-warn { background: rgba(249,115,22,0.15); color: var(--warn); }
+.badge-info { background: rgba(59,130,246,0.15); color: var(--accent2); }
+.badge-muted { background: var(--card2); color: var(--text-muted); }
+
+/* DASHBOARD */
+.quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.quick-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.quick-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow); }
+.quick-card .qc-icon { font-size: 24px; }
+.quick-card .qc-label { font-family: var(--ff-head); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; color: var(--text); }
+.quick-card .qc-sub { font-size: 11px; color: var(--text-muted); }
+.stat-strip {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin-bottom: 16px;
+}
+.stat-item {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  text-align: center;
+}
+.stat-val {
+  font-family: var(--ff-mono);
+  font-size: 22px; font-weight: 500;
+  color: var(--accent);
+}
+.stat-lbl { font-size: 10px; color: var(--text-muted); letter-spacing: .5px; text-transform: uppercase; margin-top: 2px; font-weight: 600; }
+
+/* CALCULATOR GRID */
+.calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.calc-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px;
+  cursor: pointer; transition: all .15s;
+}
+.calc-card:hover { border-color: var(--accent); background: var(--card2); }
+.calc-card .cc-icon { font-size: 22px; margin-bottom: 6px; }
+.calc-card .cc-name { font-family: var(--ff-head); font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+.calc-card .cc-desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 500;
+  display: flex; align-items: flex-end;
+  padding: 0;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  width: 100%; max-height: 92vh;
+  overflow-y: auto;
+  padding: 16px;
+  transform: translateY(100%);
+  transition: transform .25s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-handle {
+  width: 40px; height: 4px;
+  background: var(--border); border-radius: 2px;
+  margin: 0 auto 16px;
+}
+.modal-title {
+  font-family: var(--ff-head); font-size: 20px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .5px;
+  margin-bottom: 16px;
+  display: flex; align-items: center; gap: 10px;
+}
+.modal-close {
+  margin-left: auto; width: 30px; height: 30px;
+  background: var(--card2); border: none; border-radius: 50%;
+  color: var(--text-muted); cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* INSPECTION */
+.checklist-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.checklist-section-header {
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.cs-title { font-family: var(--ff-head); font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; flex: 1; }
+.cs-count { font-size: 11px; color: var(--text-muted); }
+.cs-chevron { color: var(--text-dim); transition: transform .2s; font-size: 12px; }
+.checklist-section.open .cs-chevron { transform: rotate(180deg); }
+.checklist-items { display: none; border-top: 1px solid var(--border); }
+.checklist-section.open .checklist-items { display: block; }
+.checklist-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.checklist-item:last-child { border-bottom: none; }
+.ci-row { display: flex; align-items: center; gap: 10px; }
+.ci-label { flex: 1; font-size: 14px; color: var(--text); }
+.ci-controls { display: flex; gap: 6px; }
+.radio-btn {
+  padding: 5px 10px; border-radius: 6px;
+  border: 1.5px solid var(--border);
+  font-family: var(--ff-head); font-size: 12px; font-weight: 700;
+  cursor: pointer; background: none; color: var(--text-muted);
+  transition: all .12s;
+}
+.radio-btn.pass.active { background: rgba(16,185,129,0.2); border-color: var(--success); color: var(--success); }
+.radio-btn.fail.active { background: rgba(239,68,68,0.2); border-color: var(--danger); color: var(--danger); }
+.radio-btn.na.active { background: rgba(122,144,168,0.2); border-color: var(--text-muted); color: var(--text-muted); }
+.ci-comment { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--ff-body); font-size: 13px; padding: 7px 10px; display: none; }
+.ci-comment.visible { display: block; }
+
+/* HISTORY */
+.history-item {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px;
+  margin-bottom: 8px; cursor: pointer;
+  transition: all .15s;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.history-item:hover { border-color: var(--accent); }
+.hi-icon { font-size: 24px; margin-top: 2px; }
+.hi-body { flex: 1; min-width: 0; }
+.hi-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hi-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
+.hi-actions { display: flex; gap: 6px; }
+
+/* TOAST */
+.toast-container { position: fixed; top: 70px; right: 16px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-size: 13px; font-weight: 500;
+  box-shadow: var(--shadow);
+  display: flex; align-items: center; gap: 8px;
+  animation: slideIn .2s ease;
+  max-width: 300px;
+}
+.toast.success { border-left: 3px solid var(--success); }
+.toast.error { border-left: 3px solid var(--danger); }
+.toast.info { border-left: 3px solid var(--accent); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* CONFIRM DIALOG */
+.confirm-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  z-index: 600; display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.confirm-overlay.open { opacity: 1; pointer-events: all; }
+.confirm-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 24px;
+  width: 100%; max-width: 360px;
+  transform: scale(0.9); transition: transform .2s;
+}
+.confirm-overlay.open .confirm-box { transform: scale(1); }
+.confirm-title { font-family: var(--ff-head); font-size: 18px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+.confirm-msg { font-size: 14px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 10px; }
+.confirm-actions .btn { flex: 1; }
+
+/* TABS WITHIN SURFACE AREAS */
+.sub-tabs { display: flex; gap: 0; overflow-x: auto; margin-bottom: 16px; border-radius: var(--radius); background: var(--card); padding: 3px; border: 1px solid var(--border); }
+.sub-tab { padding: 7px 14px; border-radius: 7px; font-family: var(--ff-head); font-size: 12px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; cursor: pointer; white-space: nowrap; color: var(--text-muted); border: none; background: none; transition: all .15s; }
+.sub-tab.active { background: var(--accent); color: #0F1923; }
+
+/* SETTINGS */
+.settings-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+.si-label { flex: 1; }
+.si-label strong { display: block; font-size: 14px; font-weight: 600; }
+.si-label small { font-size: 11px; color: var(--text-muted); }
+.toggle {
+  width: 44px; height: 24px;
+  background: var(--border); border-radius: 12px;
+  cursor: pointer; position: relative;
+  transition: background .2s; flex-shrink: 0;
+}
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute;
+  top: 3px; left: 3px;
+  width: 18px; height: 18px;
+  background: white; border-radius: 50%;
+  transition: transform .2s;
+}
+.toggle.on::after { transform: translateX(20px); }
+
+/* UNIT TOGGLE */
+.unit-pills { display: flex; gap: 6px; }
+.unit-pill {
+  padding: 6px 14px; border-radius: 6px;
+  border: 1.5px solid var(--border);
+  font-family: var(--ff-head); font-size: 12px; font-weight: 700;
+  cursor: pointer; background: none; color: var(--text-muted);
+  transition: all .12s;
+}
+.unit-pill.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+
+/* SEARCH */
+.search-wrap { position: relative; margin-bottom: 12px; }
+.search-wrap input { padding-left: 36px; }
+.search-icon { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 15px; pointer-events: none; }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 48px 24px; }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-title { font-family: var(--ff-head); font-size: 18px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted); }
+.empty-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+
+/* INSPECTION SUMMARY */
+.insp-summary {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 8px; margin: 14px 0;
+}
+.is-item { background: var(--card); border-radius: var(--radius); padding: 10px; text-align: center; }
+.is-val { font-family: var(--ff-mono); font-size: 20px; font-weight: 500; }
+.is-val.pass { color: var(--success); }
+.is-val.fail { color: var(--danger); }
+.is-val.na { color: var(--text-muted); }
+.is-lbl { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--text-dim); margin-top: 2px; font-weight: 600; }
+
+/* DIVIDER */
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+
+/* SCROLL TABS */
+.scroll-tabs-wrap {
+  overflow-x: auto;
+  overflow-y: visible;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  margin: 0 -16px 14px;
+  padding: 0 16px 8px;
+  max-width: calc(100% + 32px);
+}
+.scroll-tabs-wrap::-webkit-scrollbar { height: 3px; }
+.scroll-tabs-wrap::-webkit-scrollbar-track { background: transparent; }
+.scroll-tabs-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.scroll-tabs {
+  display: inline-flex;
+  gap: 8px;
+  min-width: max-content;
+}
+.scroll-tab {
+  display: inline-flex; align-items: center; flex-shrink: 0;
+  padding: 7px 16px; border-radius: 20px; white-space: nowrap;
+  font-family: var(--ff-head); font-size: 12px; font-weight: 700;
+  letter-spacing: .3px; text-transform: uppercase;
+  cursor: pointer; border: 1.5px solid var(--border);
+  background: none; color: var(--text-muted); transition: all .12s;
+}
+.scroll-tab.active { background: var(--accent); border-color: var(--accent); color: #0F1923; }
+@media (min-width: 768px) {
+  .scroll-tabs-wrap {
+    margin: 0 0 14px;
+    padding: 0 0 8px;
+    max-width: 100%;
+  }
+}
+
+/* PRINT */
+@media print {
+  #header, #bottom-nav, .no-print { display: none !important; }
+  #content { padding: 0; }
+  body { background: white; color: black; }
+  .card { break-inside: avoid; border: 1px solid #ccc; }
+}
+
+/* desktop-toggle hidden on mobile */
+#desktop-toggle { display: none; }
+
+/* ACCENT STRIPE */
+.accent-stripe {
+  height: 3px; background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent));
+  border-radius: 0 0 0 0;
+}
+/* ── BOQ MODULE ── */
+.boq-header-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+@media (min-width: 600px) { .boq-header-grid { grid-template-columns: 1fr 1fr 1fr; } }
+
+.boq-section { margin-bottom: 16px; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.boq-section-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 14px;
+  background: var(--card2);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer; user-select: none;
+}
+.boq-section-head .bsh-num {
+  font-family: var(--ff-mono); font-size: 11px; font-weight: 600;
+  background: var(--accent); color: #0F1923;
+  padding: 2px 7px; border-radius: 4px; flex-shrink: 0;
+}
+.boq-section-head .bsh-title {
+  font-family: var(--ff-head); font-size: 14px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .5px; flex: 1;
+}
+.boq-section-head .bsh-total {
+  font-family: var(--ff-mono); font-size: 13px; font-weight: 600;
+  color: var(--accent); min-width: 100px; text-align: right;
+}
+.boq-section-head .bsh-chevron { color: var(--text-dim); font-size: 11px; transition: transform .2s; }
+.boq-section.open .bsh-chevron { transform: rotate(180deg); }
+
+.boq-section-body { display: none; }
+.boq-section.open .boq-section-body { display: block; }
+
+/* Sub-heading rows (e.g. "CONCRETE FOUNDATIONS") */
+.boq-subhead {
+  padding: 7px 14px;
+  background: var(--bg);
+  font-family: var(--ff-head); font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .5px;
+  color: var(--accent2);
+  border-bottom: 1px solid var(--border);
+}
+/* Preamble note rows */
+.boq-note {
+  padding: 6px 14px;
+  font-size: 11px; color: var(--text-dim);
+  font-style: italic;
+  border-bottom: 1px solid var(--border);
+  line-height: 1.5;
+}
+
+/* Table */
+.boq-table { width: 100%; border-collapse: collapse; }
+.boq-table th {
+  padding: 7px 10px;
+  font-family: var(--ff-head); font-size: 11px; font-weight: 700;
+  letter-spacing: .8px; text-transform: uppercase;
+  color: var(--text-muted);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+.boq-table th.right { text-align: right; }
+.boq-table td {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.boq-table tr:last-child td { border-bottom: none; }
+.boq-table tr:hover td { background: var(--card2); }
+
+.boq-td-num {
+  padding: 0 10px;
+  font-family: var(--ff-mono); font-size: 11px;
+  color: var(--text-dim); white-space: nowrap;
+  width: 52px;
+}
+.boq-td-desc {
+  padding: 8px 10px;
+  font-size: 13px; color: var(--text);
+  min-width: 160px;
+}
+.boq-td-unit {
+  padding: 0 8px;
+  font-family: var(--ff-mono); font-size: 11px;
+  color: var(--text-muted); white-space: nowrap;
+  width: 52px;
+}
+.boq-input {
+  width: 100%; background: transparent;
+  border: none; outline: none;
+  color: var(--text); font-family: var(--ff-mono); font-size: 13px;
+  padding: 8px 10px; text-align: right;
+  min-width: 80px;
+}
+.boq-input:focus { background: var(--accent-dim); }
+.boq-amount {
+  padding: 8px 10px; text-align: right;
+  font-family: var(--ff-mono); font-size: 13px;
+  color: var(--text); white-space: nowrap; min-width: 100px;
+}
+.boq-amount.nonzero { color: var(--accent); font-weight: 600; }
+
+/* Sub-total rows */
+.boq-subtotal td {
+  padding: 7px 10px;
+  font-family: var(--ff-mono); font-size: 12px;
+  background: var(--card2);
+  font-weight: 600; text-align: right;
+}
+.boq-subtotal .st-label { text-align: left; font-family: var(--ff-head); font-size: 12px; letter-spacing: .3px; text-transform: uppercase; color: var(--text-muted); }
+.boq-subtotal .st-val { color: var(--accent); }
+
+/* Grand total bar */
+.boq-grand {
+  display: grid; grid-template-columns: 1fr auto;
+  gap: 12px; align-items: center;
+  background: var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 18px; margin-top: 16px;
+}
+.boq-grand .bg-label { font-family: var(--ff-head); font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: #0F1923; }
+.boq-grand .bg-val { font-family: var(--ff-mono); font-size: 22px; font-weight: 600; color: #0F1923; }
+
+/* Section totals summary table */
+.boq-summary-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.boq-summary-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.boq-summary-table td:last-child { text-align: right; font-family: var(--ff-mono); font-weight: 600; color: var(--accent); }
+.boq-summary-table tr:last-child td { border-bottom: none; }
+
+/* Print stylesheet */
+@media print {
+  #header, #bottom-nav, #sidebar, #desktop-toggle,
+  .boq-actions, .boq-section-head .bsh-chevron,
+  .no-print { display: none !important; }
+  #content { padding: 0 !important; overflow: visible !important; }
+  .content-inner { max-width: 100% !important; padding: 12px !important; }
+  .boq-section { break-inside: avoid; border: 1px solid #ccc; }
+  .boq-section-body { display: block !important; }
+  .boq-section-head { background: #f5f5f5; }
+  .boq-input { border: none; background: transparent; color: #000; }
+  .boq-table th, .boq-table td { border-color: #ccc; }
+  body, .boq-table td, .boq-td-desc { color: #000 !important; }
+  .boq-amount.nonzero { color: #333 !important; }
+  .boq-grand { background: #333; }
+  .boq-grand .bg-label, .boq-grand .bg-val { color: #fff !important; }
+  .tab { display: none !important; }
+  #tab-boq { display: block !important; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- SIDEBAR OVERLAY (mobile) -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-logo">
+    FIELD<span>PRO</span>
+    <button class="sidebar-close" onclick="closeSidebar()">✕</button>
+  </div>
+  <div class="sidebar-nav">
+    <button class="sidebar-nav-btn active" onclick="showTab('dashboard')" data-tab="dashboard">
+      <span class="nav-icon">🏠</span><span>Dashboard</span>
+    </button>
+    <button class="sidebar-nav-btn" onclick="showTab('areas')" data-tab="areas">
+      <span class="nav-icon">📐</span><span>Surface Areas</span>
+    </button>
+    <button class="sidebar-nav-btn" onclick="showTab('utilities')" data-tab="utilities">
+      <span class="nav-icon">🔧</span><span>Utilities</span>
+    </button>
+    <button class="sidebar-nav-btn" onclick="showTab('inspection')" data-tab="inspection">
+      <span class="nav-icon">📋</span><span>Inspection</span>
+    </button>
+    <button class="sidebar-nav-btn" onclick="showTab('history')" data-tab="history">
+      <span class="nav-icon">🗂️</span><span>History</span>
+    </button>
+    <button class="sidebar-nav-btn" onclick="showTab('boq')" data-tab="boq">
+      <span class="nav-icon">📊</span><span>Bill of Quantities</span>
+    </button>
+    <button class="sidebar-nav-btn" onclick="showTab('settings')" data-tab="settings">
+      <span class="nav-icon">⚙️</span><span>Settings</span>
+    </button>
+  </div>
+  <div class="sidebar-footer">
+    <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme" style="flex:1;width:auto;border-radius:var(--radius)">🌓 Theme</button>
+  </div>
+</nav>
+
+<!-- MOBILE HEADER -->
+<div id="header">
+  <button class="icon-btn" onclick="openSidebar()" title="Menu" style="font-size:18px">☰</button>
+  <div class="logo">FIELD<span>PRO</span></div>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="toggleTheme()" title="Toggle theme">🌓</button>
+  </div>
+</div>
+
+<!-- CONTENT -->
+<div id="content">
+
+<!-- Desktop sidebar toggle (visible only on desktop) -->
+<button id="desktop-toggle" class="icon-btn" onclick="toggleDesktopSidebar()"
+  title="Toggle sidebar"
+  style="position:sticky;top:16px;left:16px;z-index:50;margin:16px 0 -16px 16px;font-size:18px">☰</button>
+
+<!-- DASHBOARD TAB -->
+<div class="tab active" id="tab-dashboard">
+<div class="content-inner">
+  <div class="stat-strip" id="dash-stats">
+    <div class="stat-item"><div class="stat-val" id="stat-insp">0</div><div class="stat-lbl">Inspections</div></div>
+    <div class="stat-item"><div class="stat-val" id="stat-calc">0</div><div class="stat-lbl">Calculations</div></div>
+    <div class="stat-item"><div class="stat-val" id="stat-proj">—</div><div class="stat-lbl">Projects</div></div>
+  </div>
+
+  <div class="section-title">Quick Access</div>
+  <div class="quick-grid">
+    <div class="quick-card" onclick="showTab('areas'); setAreaCalc('rectangle')">
+      <div class="qc-icon">▭</div>
+      <div class="qc-label">Rectangle Area</div>
+      <div class="qc-sub">L × W</div>
+    </div>
+    <div class="quick-card" onclick="showTab('areas'); setAreaCalc('circle')">
+      <div class="qc-icon">○</div>
+      <div class="qc-label">Circle Area</div>
+      <div class="qc-sub">π × r²</div>
+    </div>
+    <div class="quick-card" onclick="showTab('utilities'); setUtilCalc('concrete')">
+      <div class="qc-icon">🧱</div>
+      <div class="qc-label">Concrete Vol.</div>
+      <div class="qc-sub">Slab/Footing/Column</div>
+    </div>
+    <div class="quick-card" onclick="showTab('inspection'); startNewInspection()">
+      <div class="qc-icon">📋</div>
+      <div class="qc-label">New Inspection</div>
+      <div class="qc-sub">Start checklist</div>
+    </div>
+    <div class="quick-card" onclick="showTab('utilities'); setUtilCalc('material')">
+      <div class="qc-icon">🏗️</div>
+      <div class="qc-label">Material Est.</div>
+      <div class="qc-sub">Cement, Sand, Agg.</div>
+    </div>
+    <div class="quick-card" onclick="showTab('utilities'); setUtilCalc('converter')">
+      <div class="qc-icon">🔄</div>
+      <div class="qc-label">Unit Converter</div>
+      <div class="qc-sub">mm/m/ft/kg/ton</div>
+    </div>
+  </div>
+
+  <div class="section-title">Recent Activity</div>
+  <div id="recent-list">
+    <div class="empty-state">
+      <div class="empty-icon">📂</div>
+      <div class="empty-title">No Recent Activity</div>
+      <div class="empty-sub">Start a calculation or inspection to see your history here.</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- SURFACE AREAS TAB -->
+<div class="tab" id="tab-areas">
+<div class="content-inner">
+  <div class="scroll-tabs-wrap">
+  <div class="scroll-tabs" id="area-tabs">
+    <button class="scroll-tab active" data-calc="rectangle" onclick="setAreaCalc('rectangle',this)">Rectangle</button>
+    <button class="scroll-tab" data-calc="square" onclick="setAreaCalc('square',this)">Square</button>
+    <button class="scroll-tab" data-calc="triangle" onclick="setAreaCalc('triangle',this)">Triangle</button>
+    <button class="scroll-tab" data-calc="circle" onclick="setAreaCalc('circle',this)">Circle</button>
+    <button class="scroll-tab" data-calc="trapezoid" onclick="setAreaCalc('trapezoid',this)">Trapezoid</button>
+    <button class="scroll-tab" data-calc="wall" onclick="setAreaCalc('wall',this)">Wall</button>
+    <button class="scroll-tab" data-calc="roof" onclick="setAreaCalc('roof',this)">Roof</button>
+    <button class="scroll-tab" data-calc="paint" onclick="setAreaCalc('paint',this)">Paint</button>
+    <button class="scroll-tab" data-calc="tile" onclick="setAreaCalc('tile',this)">Tiling</button>
+    <button class="scroll-tab" data-calc="plaster" onclick="setAreaCalc('plaster',this)">Plaster</button>
+  </div>
+  </div>
+  <div id="area-calc-container"></div>
+</div>
+</div>
+
+<!-- UTILITIES TAB -->
+<div class="tab" id="tab-utilities">
+<div class="content-inner">
+  <div class="scroll-tabs-wrap">
+  <div class="scroll-tabs" id="util-tabs">
+    <button class="scroll-tab active" data-calc="concrete" onclick="setUtilCalc('concrete',this)">Concrete Vol.</button>
+    <button class="scroll-tab" data-calc="material" onclick="setUtilCalc('material',this)">Materials</button>
+    <button class="scroll-tab" data-calc="converter" onclick="setUtilCalc('converter',this)">Converter</button>
+    <button class="scroll-tab" data-calc="slope" onclick="setUtilCalc('slope',this)">Slope</button>
+    <button class="scroll-tab" data-calc="perimeter" onclick="setUtilCalc('perimeter',this)">Perimeter</button>
+    <button class="scroll-tab" data-calc="stairs" onclick="setUtilCalc('stairs',this)">Stairs</button>
+    <button class="scroll-tab" data-calc="mix" onclick="setUtilCalc('mix',this)">Mix Ratio</button>
+    <button class="scroll-tab" data-calc="rebar" onclick="setUtilCalc('rebar',this)">Rebar Spacing</button>
+    <button class="scroll-tab" data-calc="percent" onclick="setUtilCalc('percent',this)">Percentage</button>
+  </div>
+  </div>
+  <div id="util-calc-container"></div>
+</div>
+</div>
+
+<!-- INSPECTION TAB -->
+<div class="tab" id="tab-inspection">
+<div class="content-inner">
+  <div id="insp-list-view">
+    <div class="btn-group" style="margin-bottom:16px">
+      <button class="btn btn-primary" onclick="startNewInspection()">+ New Inspection</button>
+      <button class="btn btn-secondary" onclick="showTab('history')">View All</button>
+    </div>
+    <div id="draft-inspections"></div>
+  </div>
+
+  <div id="insp-form-view" style="display:none">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <button class="btn btn-secondary btn-sm" onclick="backToInspList()">← Back</button>
+      <div style="font-family:var(--ff-head);font-size:18px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;flex:1" id="insp-form-title">New Inspection</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">📋</div>
+        <div><div class="card-title">Inspection Details</div></div>
+      </div>
+      <div class="form-row two">
+        <div class="form-group"><label class="form-label">Project Name</label><input class="form-input" id="i-project" placeholder="Project XYZ"></div>
+        <div class="form-group"><label class="form-label">Site Name</label><input class="form-input" id="i-site" placeholder="Site A"></div>
+      </div>
+      <div class="form-row two">
+        <div class="form-group"><label class="form-label">Client Name</label><input class="form-input" id="i-client" placeholder="Client Ltd."></div>
+        <div class="form-group"><label class="form-label">Contractor</label><input class="form-input" id="i-contractor" placeholder="Builder Co."></div>
+      </div>
+      <div class="form-row two">
+        <div class="form-group"><label class="form-label">Inspector Name</label><input class="form-input" id="i-inspector" placeholder="Your Name"></div>
+        <div class="form-group"><label class="form-label">Date & Time</label><input class="form-input" id="i-datetime" type="datetime-local"></div>
+      </div>
+      <div class="form-row two">
+        <div class="form-group"><label class="form-label">Weather</label>
+          <select class="form-select" id="i-weather">
+            <option>Clear / Sunny</option><option>Partly Cloudy</option><option>Overcast</option>
+            <option>Light Rain</option><option>Heavy Rain</option><option>Windy</option><option>Hot</option>
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">Inspection Type</label>
+          <select class="form-select" id="i-type">
+            <option>General Site Inspection</option><option>Safety Inspection</option>
+            <option>Quality Inspection</option><option>Progress Inspection</option>
+            <option>Structural Inspection</option><option>Electrical Inspection</option>
+            <option>Snag Inspection</option><option>Final Inspection</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row two">
+        <div class="form-group"><label class="form-label">Work Area / Zone</label><input class="form-input" id="i-zone" placeholder="Block A / Level 2"></div>
+        <div class="form-group"><label class="form-label">Reference / Permit No.</label><input class="form-input" id="i-ref" placeholder="REF-001"></div>
+      </div>
+      <div class="form-group"><label class="form-label">General Notes / Remarks</label><textarea class="form-textarea" id="i-notes" placeholder="Enter any general observations or remarks..."></textarea></div>
+    </div>
+
+    <div id="checklist-container"></div>
+
+    <div class="card" id="insp-summary-card">
+      <div class="card-header"><div class="card-icon">📊</div><div class="card-title">Inspection Summary</div></div>
+      <div class="insp-summary">
+        <div class="is-item"><div class="is-val pass" id="sum-pass">0</div><div class="is-lbl">Passed</div></div>
+        <div class="is-item"><div class="is-val fail" id="sum-fail">0</div><div class="is-lbl">Failed</div></div>
+        <div class="is-item"><div class="is-val na" id="sum-na">0</div><div class="is-lbl">N/A</div></div>
+      </div>
+      <div id="overall-status" style="text-align:center;padding:10px;border-radius:var(--radius);background:var(--card2);font-family:var(--ff-head);font-size:16px;font-weight:700;text-transform:uppercase;letter-spacing:.5px"></div>
+    </div>
+
+    <div class="form-row two" style="margin-top:4px">
+      <div class="form-group"><label class="form-label">Inspector Acknowledgement</label><input class="form-input" id="i-ack-inspector" placeholder="Name + Sign"></div>
+      <div class="form-group"><label class="form-label">Contractor Acknowledgement</label><input class="form-input" id="i-ack-contractor" placeholder="Name + Sign"></div>
+    </div>
+
+    <div class="btn-group" style="margin-top:8px;padding-bottom:16px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveInspection()">💾 Save Inspection</button>
+      <button class="btn btn-secondary" onclick="exportInspectionCSV()">📤 Export CSV</button>
+      <button class="btn btn-secondary" onclick="printInspection()">🖨️ Print</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- HISTORY TAB -->
+<div class="tab" id="tab-history">
+<div class="content-inner">
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="form-input" id="history-search" placeholder="Search by project, site, date..." oninput="filterHistory()">
+  </div>
+  <div class="scroll-tabs-wrap" style="margin-bottom:14px">
+  <div class="scroll-tabs">
+    <button class="scroll-tab active" onclick="filterHistoryType('all',this)">All</button>
+    <button class="scroll-tab" onclick="filterHistoryType('inspection',this)">Inspections</button>
+    <button class="scroll-tab" onclick="filterHistoryType('calculation',this)">Calculations</button>
+  </div>
+  </div>
+  <div class="btn-group" style="margin-bottom:14px">
+    <button class="btn btn-secondary btn-sm" onclick="exportAllCSV()">📤 Export All CSV</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportJSON()">📦 Backup JSON</button>
+    <button class="btn btn-secondary btn-sm" onclick="importJSON()">📥 Import Backup</button>
+  </div>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+  <div id="history-list"></div>
+</div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div class="tab" id="tab-settings">
+<div class="content-inner">
+  <div class="section-title">Company</div>
+  <div class="settings-item">
+    <span class="si-label"><strong>Company Name</strong><small>Used on inspection reports</small></span>
+    <input class="form-input" id="s-company" placeholder="Your Company" style="max-width:180px" oninput="saveSetting('company',this.value)">
+  </div>
+  <div class="settings-item">
+    <span class="si-label"><strong>Default Inspector</strong><small>Pre-filled on new inspections</small></span>
+    <input class="form-input" id="s-inspector" placeholder="Your Name" style="max-width:180px" oninput="saveSetting('inspector',this.value)">
+  </div>
+
+  <div class="section-title">Preferences</div>
+  <div class="settings-item">
+    <span class="si-label"><strong>Dark Mode</strong><small>Toggle theme</small></span>
+    <div class="toggle on" id="theme-toggle" onclick="toggleTheme()"></div>
+  </div>
+  <div class="settings-item">
+    <span class="si-label"><strong>Default Unit</strong><small>Metric or Imperial</small></span>
+    <div class="unit-pills">
+      <button class="unit-pill active" id="unit-metric" onclick="setUnit('metric')">Metric</button>
+      <button class="unit-pill" id="unit-imperial" onclick="setUnit('imperial')">Imperial</button>
+    </div>
+  </div>
+  <div class="settings-item">
+    <span class="si-label"><strong>Decimal Places</strong><small>Result rounding</small></span>
+    <select class="form-select" style="max-width:120px" id="s-decimals" onchange="saveSetting('decimals',this.value)">
+      <option value="2">2 decimal</option>
+      <option value="3">3 decimal</option>
+      <option value="4">4 decimal</option>
+    </select>
+  </div>
+
+  <div class="section-title">Default Waste %</div>
+  <div class="form-row two">
+    <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <span class="form-label">Paint / Coating</span>
+      <input class="form-input" type="number" id="s-waste-paint" value="10" style="max-width:100px" oninput="saveSetting('waste_paint',this.value)">
+    </div>
+    <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <span class="form-label">Tiling</span>
+      <input class="form-input" type="number" id="s-waste-tile" value="12" style="max-width:100px" oninput="saveSetting('waste_tile',this.value)">
+    </div>
+    <div class="settings-item" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <span class="form-label">Plaster</span>
+      <input class="form-input" type="number" id="s-waste-plaster" value="10" style="max-width:100px" oninput="saveSetting('waste_plaster',this.value)">
+    </div>
+  </div>
+
+  <div class="section-title">Data Management</div>
+  <div class="btn-group">
+    <button class="btn btn-secondary" onclick="exportJSON()">📦 Backup All Data</button>
+    <button class="btn btn-secondary" onclick="importJSON()">📥 Restore Backup</button>
+    <button class="btn btn-danger" onclick="confirmClearAll()">🗑️ Clear All Data</button>
+  </div>
+
+  <div class="divider"></div>
+  <div style="text-align:center;color:var(--text-dim);font-size:12px;padding:8px 0 24px">
+    FieldPro Construction v1.0 &bull; Offline-first PWA<br>Built for field engineering &amp; site operations
+  </div>
+</div>
+</div>
+
+<!-- BOQ TAB -->
+<div class="tab" id="tab-boq">
+<div class="content-inner">
+
+  <!-- Header: Project details -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-header">
+      <div class="card-icon">📊</div>
+      <div><div class="card-title">Bill of Quantities</div><div class="card-sub">Enter project details then fill in quantities and rates</div></div>
+    </div>
+    <div class="boq-header-grid">
+      <div class="form-group"><label class="form-label">Project / Erf</label><input class="form-input" id="boq-project" placeholder="Erf 5075, Ext 15"></div>
+      <div class="form-group"><label class="form-label">Owner</label><input class="form-input" id="boq-owner" placeholder="Client Name"></div>
+      <div class="form-group"><label class="form-label">Contractor</label><input class="form-input" id="boq-contractor" placeholder="Contractor Name"></div>
+      <div class="form-group"><label class="form-label">Prepared By</label><input class="form-input" id="boq-preparer" placeholder="Your Name"></div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="boq-date"></div>
+      <div class="form-group"><label class="form-label">Currency</label>
+        <select class="form-select" id="boq-currency" onchange="boqRefresh()">
+          <option value="N$">N$ (Namibian Dollar)</option>
+          <option value="R">R (South African Rand)</option>
+          <option value="$">$ (US Dollar)</option>
+          <option value="€">€ (Euro)</option>
+          <option value="£">£ (Pound)</option>
+        </select>
+      </div>
+    </div>
+    <div class="boq-actions btn-group no-print">
+      <button class="btn btn-primary" onclick="boqExportExcel()">📥 Export Excel</button>
+      <button class="btn btn-secondary" onclick="boqExportPDF()">🖨️ Export / Print PDF</button>
+      <button class="btn btn-secondary" onclick="boqSave()">💾 Save BOQ</button>
+      <button class="btn btn-danger btn-sm" onclick="boqReset()">↺ Reset</button>
+    </div>
+  </div>
+
+  <!-- Section Totals Summary -->
+  <div class="card" style="margin-bottom:14px" id="boq-summary-card">
+    <div class="card-header"><div class="card-icon">🧮</div><div class="card-title">Summary of Sections</div></div>
+    <table class="boq-summary-table" id="boq-summary-table"></table>
+    <div class="boq-grand">
+      <div class="bg-label">Grand Total</div>
+      <div class="bg-val" id="boq-grand-total">N$ 0.00</div>
+    </div>
+  </div>
+
+  <!-- BOQ Sections rendered here -->
+  <div id="boq-sections"></div>
+
+</div>
+</div>
+
+</div><!-- end content -->
+
+</div><!-- end app -->
+
+<!-- MOBILE BOTTOM NAV -->
+<nav id="bottom-nav">
+  <button class="nav-btn active" onclick="showTab('dashboard')" data-tab="dashboard">
+    <span class="nav-icon">🏠</span><span>Dashboard</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('areas')" data-tab="areas">
+    <span class="nav-icon">📐</span><span>Areas</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('utilities')" data-tab="utilities">
+    <span class="nav-icon">🔧</span><span>Utilities</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('inspection')" data-tab="inspection">
+    <span class="nav-icon">📋</span><span>Inspect</span>
+  </button>
+  <button class="nav-btn" onclick="showTab('history')" data-tab="history">
+    <span class="nav-icon">🗂️</span><span>History</span>
+  </button>
+  <button class="nav-btn" onclick="openSidebar()">
+    <span class="nav-icon">☰</span><span>Menu</span>
+  </button>
+</nav>
+<div class="modal-overlay" id="save-modal" onclick="closeSaveModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">
+      💾 Save Calculation
+      <button class="modal-close" onclick="closeSaveModal()">✕</button>
+    </div>
+    <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="save-title" placeholder="e.g. Ground Floor Slab"></div>
+    <div class="form-group"><label class="form-label">Project</label><input class="form-input" id="save-project" placeholder="Project name"></div>
+    <div class="form-group"><label class="form-label">Note</label><textarea class="form-textarea" id="save-note" placeholder="Optional note..." style="min-height:60px"></textarea></div>
+    <div id="save-result-preview" style="margin-bottom:14px"></div>
+    <div class="btn-group">
+      <button class="btn btn-primary" style="flex:1" onclick="doSaveCalc()">Save to History</button>
+      <button class="btn btn-secondary" onclick="closeSaveModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="confirm-overlay" id="confirm-overlay">
+  <div class="confirm-box">
+    <div class="confirm-title" id="confirm-title">Confirm Action</div>
+    <div class="confirm-msg" id="confirm-msg">Are you sure?</div>
+    <div class="confirm-actions">
+      <button class="btn btn-danger" id="confirm-ok">Confirm</button>
+      <button class="btn btn-secondary" onclick="closeConfirm()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toasts"></div>
+
+<script>
+/* ============================================================
+   FIELDPRO - MAIN APPLICATION
+   ============================================================ */
+
+/* === DATABASE (Dexie / IndexedDB) === */
+const db = new Dexie('FieldProDB');
+db.version(1).stores({
+  calculations: '++id, type, title, project, date',
+  inspections: '++id, project, site, date, status',
+  settings: 'key'
+});
+
+/* === APP STATE === */
+const APP = {
+  currentTab: 'dashboard',
+  unitSystem: 'metric',
+  decimals: 2,
+  currentCalcData: null,
+  currentInspectionId: null,
+  historyFilter: 'all',
+  settings: {}
+};
+
+/* === INIT === */
+async function init() {
+  // Register SW
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+  // Load settings
+  const rows = await db.settings.toArray();
+  rows.forEach(r => APP.settings[r.key] = r.value);
+  applySettings();
+  // Init calculators
+  setAreaCalc('rectangle');
+  setUtilCalc('concrete');
+  // Load dashboard
+  await refreshDashboard();
+  // Inspection checklist
+  buildChecklistDOM();
+  // Load history
+  await loadHistory();
+  // Load drafts
+  await loadDraftInspections();
+}
+
+function applySettings() {
+  const s = APP.settings;
+  if (s.theme === 'light') { document.documentElement.setAttribute('data-theme','light'); document.getElementById('theme-toggle').classList.remove('on'); }
+  if (s.unit) { APP.unitSystem = s.unit; }
+  if (s.decimals) { APP.decimals = parseInt(s.decimals); }
+  if (s.company) document.getElementById('s-company').value = s.company;
+  if (s.inspector) document.getElementById('s-inspector').value = s.inspector;
+  if (s.decimals) document.getElementById('s-decimals').value = s.decimals;
+  if (s.waste_paint) document.getElementById('s-waste-paint').value = s.waste_paint;
+  if (s.waste_tile) document.getElementById('s-waste-tile').value = s.waste_tile;
+  if (s.waste_plaster) document.getElementById('s-waste-plaster').value = s.waste_plaster;
+}
+
+async function saveSetting(key, val) {
+  APP.settings[key] = val;
+  await db.settings.put({ key, value: val });
+}
+
+/* === NAVIGATION === */
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  // Update bottom nav
+  document.querySelectorAll('#bottom-nav .nav-btn').forEach(b => b.classList.remove('active'));
+  const bottomBtn = document.querySelector(`#bottom-nav [data-tab="${name}"]`);
+  if (bottomBtn) bottomBtn.classList.add('active');
+  // Update sidebar nav
+  document.querySelectorAll('.sidebar-nav-btn').forEach(b => b.classList.remove('active'));
+  const sideBtn = document.querySelector(`.sidebar-nav-btn[data-tab="${name}"]`);
+  if (sideBtn) sideBtn.classList.add('active');
+
+  document.getElementById('tab-' + name).classList.add('active');
+  APP.currentTab = name;
+  // Close sidebar on mobile after nav
+  if (window.innerWidth < 768) closeSidebar();
+  if (name === 'history') loadHistory();
+  if (name === 'dashboard') refreshDashboard();
+  // BOQ: init on first visit
+  if (name === 'boq' && !boqInitialized) {
+    boqInitialized = true;
+    document.getElementById('boq-date').value = new Date().toISOString().slice(0,10);
+    const insp = APP.settings.inspector || '';
+    if (insp) document.getElementById('boq-preparer').value = insp;
+    boqRenderSections();
+  }
+}
+
+/* === SIDEBAR CONTROLS === */
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebar-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function toggleDesktopSidebar() {
+  document.getElementById('sidebar').classList.toggle('desktop-hidden');
+}
+
+/* === THEME === */
+function toggleTheme() {
+  const root = document.documentElement;
+  const isDark = root.getAttribute('data-theme') !== 'light';
+  root.setAttribute('data-theme', isDark ? 'light' : 'dark');
+  document.getElementById('theme-toggle').classList.toggle('on', !isDark);
+  saveSetting('theme', isDark ? 'light' : 'dark');
+}
+
+/* === UNIT SYSTEM === */
+function setUnit(u) {
+  APP.unitSystem = u;
+  saveSetting('unit', u);
+  document.getElementById('unit-metric').classList.toggle('active', u === 'metric');
+  document.getElementById('unit-imperial').classList.toggle('active', u === 'imperial');
+  // Refresh current calculators
+  setAreaCalc(document.querySelector('#area-tabs .active')?.dataset.calc || 'rectangle');
+  setUtilCalc(document.querySelector('#util-tabs .active')?.dataset.calc || 'concrete');
+}
+
+/* === TOAST SYSTEM === */
+function toast(msg, type = 'info', dur = 2800) {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  const icons = { info: 'ℹ️', success: '✅', error: '❌' };
+  t.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${msg}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), dur);
+}
+
+/* === CONFIRM DIALOG === */
+let _confirmCallback = null;
+function showConfirm(title, msg, cb) {
+  document.getElementById('confirm-title').textContent = title;
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('confirm-overlay').classList.add('open');
+  document.getElementById('confirm-ok').onclick = () => { closeConfirm(); cb(); };
+  _confirmCallback = cb;
+}
+function closeConfirm() { document.getElementById('confirm-overlay').classList.remove('open'); }
+
+/* ============================================================
+   AREA CALCULATORS
+   ============================================================ */
+const U = () => APP.unitSystem === 'metric';
+const uf = (m, imp) => U() ? m : imp;
+const fmt = (v) => parseFloat(v.toFixed(APP.decimals));
+
+const areaCalcs = {
+  rectangle: {
+    name: 'Rectangle Area', icon: '▭',
+    formula: 'A = L × W',
+    fields: [
+      { id:'r-l', label:'Length', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'r-w', label:'Width', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'r-qty', label:'Quantity / Count', unit_m:'no.', unit_i:'no.', placeholder:'1', default:'1' },
+      { id:'r-ded', label:'Openings Deduction (total)', unit_m:'m²', unit_i:'ft²', placeholder:'0.00', default:'0' },
+      { id:'r-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'10', default:'10' }
+    ],
+    calc: (vals) => {
+      const l = parseFloat(vals['r-l'])||0, w = parseFloat(vals['r-w'])||0;
+      const qty = parseFloat(vals['r-qty'])||1, ded = parseFloat(vals['r-ded'])||0;
+      const waste = parseFloat(vals['r-waste'])||0;
+      const base = l * w * qty;
+      const adj = Math.max(0, base - ded);
+      const final = adj * (1 + waste/100);
+      return { base: fmt(base), adj: fmt(adj), final: fmt(final), unit: U()?'m²':'ft²' };
+    }
+  },
+  square: {
+    name: 'Square Area', icon: '□',
+    formula: 'A = S²',
+    fields: [
+      { id:'sq-s', label:'Side Length', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'sq-qty', label:'Quantity', unit_m:'no.', unit_i:'no.', placeholder:'1', default:'1' },
+      { id:'sq-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'10', default:'10' }
+    ],
+    calc: (vals) => {
+      const s = parseFloat(vals['sq-s'])||0, qty = parseFloat(vals['sq-qty'])||1, waste = parseFloat(vals['sq-waste'])||0;
+      const base = s * s * qty, final = base * (1 + waste/100);
+      return { base: fmt(base), adj: fmt(base), final: fmt(final), unit: U()?'m²':'ft²' };
+    }
+  },
+  triangle: {
+    name: 'Triangle Area', icon: '△',
+    formula: 'A = ½ × B × H',
+    fields: [
+      { id:'tri-b', label:'Base', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'tri-h', label:'Height', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'tri-qty', label:'Quantity', unit_m:'no.', unit_i:'no.', placeholder:'1', default:'1' },
+      { id:'tri-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'0', default:'0' }
+    ],
+    calc: (vals) => {
+      const b = parseFloat(vals['tri-b'])||0, h = parseFloat(vals['tri-h'])||0;
+      const qty = parseFloat(vals['tri-qty'])||1, waste = parseFloat(vals['tri-waste'])||0;
+      const base = 0.5 * b * h * qty, final = base * (1 + waste/100);
+      return { base: fmt(base), adj: fmt(base), final: fmt(final), unit: U()?'m²':'ft²' };
+    }
+  },
+  circle: {
+    name: 'Circle Area', icon: '○',
+    formula: 'A = π × r²',
+    fields: [
+      { id:'cir-r', label:'Radius', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'cir-qty', label:'Quantity', unit_m:'no.', unit_i:'no.', placeholder:'1', default:'1' },
+      { id:'cir-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'0', default:'0' }
+    ],
+    calc: (vals) => {
+      const r = parseFloat(vals['cir-r'])||0, qty = parseFloat(vals['cir-qty'])||1, waste = parseFloat(vals['cir-waste'])||0;
+      const base = Math.PI * r * r * qty, final = base * (1 + waste/100);
+      return { base: fmt(base), adj: fmt(base), final: fmt(final), unit: U()?'m²':'ft²', circ: fmt(2*Math.PI*r) };
+    }
+  },
+  trapezoid: {
+    name: 'Trapezoid Area', icon: '⌂',
+    formula: 'A = ½ × (a + b) × h',
+    fields: [
+      { id:'trap-a', label:'Side a (top)', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'trap-b', label:'Side b (bottom)', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'trap-h', label:'Height', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'trap-qty', label:'Quantity', unit_m:'no.', unit_i:'no.', placeholder:'1', default:'1' },
+      { id:'trap-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'0', default:'0' }
+    ],
+    calc: (vals) => {
+      const a = parseFloat(vals['trap-a'])||0, b = parseFloat(vals['trap-b'])||0, h = parseFloat(vals['trap-h'])||0;
+      const qty = parseFloat(vals['trap-qty'])||1, waste = parseFloat(vals['trap-waste'])||0;
+      const base = 0.5 * (a + b) * h * qty, final = base * (1 + waste/100);
+      return { base: fmt(base), adj: fmt(base), final: fmt(final), unit: U()?'m²':'ft²' };
+    }
+  },
+  wall: {
+    name: 'Wall Area (with openings)', icon: '🧱',
+    formula: 'A = L × H − Openings',
+    fields: [
+      { id:'wall-l', label:'Wall Length', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'wall-h', label:'Wall Height', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'wall-qty', label:'No. of Walls', unit_m:'no.', unit_i:'no.', placeholder:'1', default:'1' },
+      { id:'wall-doors', label:'Door Count', unit_m:'no.', unit_i:'no.', placeholder:'0', default:'0' },
+      { id:'wall-dw', label:'Door Width', unit_m:'m', unit_i:'ft', placeholder:'0.9', default:'0.9' },
+      { id:'wall-dh', label:'Door Height', unit_m:'m', unit_i:'ft', placeholder:'2.1', default:'2.1' },
+      { id:'wall-wins', label:'Window Count', unit_m:'no.', unit_i:'no.', placeholder:'0', default:'0' },
+      { id:'wall-ww', label:'Window Width', unit_m:'m', unit_i:'ft', placeholder:'1.2', default:'1.2' },
+      { id:'wall-wh', label:'Window Height', unit_m:'m', unit_i:'ft', placeholder:'1.0', default:'1.0' },
+      { id:'wall-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'10', default:'10' }
+    ],
+    calc: (vals) => {
+      const l = parseFloat(vals['wall-l'])||0, h = parseFloat(vals['wall-h'])||0;
+      const qty = parseFloat(vals['wall-qty'])||1;
+      const doors = parseFloat(vals['wall-doors'])||0, dw = parseFloat(vals['wall-dw'])||0.9, dh = parseFloat(vals['wall-dh'])||2.1;
+      const wins = parseFloat(vals['wall-wins'])||0, ww = parseFloat(vals['wall-ww'])||1.2, wh = parseFloat(vals['wall-wh'])||1.0;
+      const waste = parseFloat(vals['wall-waste'])||0;
+      const gross = l * h * qty;
+      const deductions = (doors * dw * dh) + (wins * ww * wh);
+      const adj = Math.max(0, gross - deductions);
+      const final = adj * (1 + waste/100);
+      return { base: fmt(gross), adj: fmt(adj), final: fmt(final), unit: U()?'m²':'ft²', deductions: fmt(deductions) };
+    }
+  },
+  roof: {
+    name: 'Roof Area Approximation', icon: '🏠',
+    formula: 'A = L × W × Pitch Factor',
+    fields: [
+      { id:'roof-l', label:'Building Length', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'roof-w', label:'Building Width', unit_m:'m', unit_i:'ft', placeholder:'0.00' },
+      { id:'roof-pitch', label:'Roof Pitch (degrees)', unit_m:'°', unit_i:'°', placeholder:'25', default:'25' },
+      { id:'roof-overhang', label:'Eave Overhang (each side)', unit_m:'m', unit_i:'ft', placeholder:'0.5', default:'0.5' },
+      { id:'roof-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'10', default:'10' }
+    ],
+    calc: (vals) => {
+      const l = parseFloat(vals['roof-l'])||0, w = parseFloat(vals['roof-w'])||0;
+      const pitch = parseFloat(vals['roof-pitch'])||25, overhang = parseFloat(vals['roof-overhang'])||0;
+      const waste = parseFloat(vals['roof-waste'])||0;
+      const pitchFactor = 1 / Math.cos(pitch * Math.PI / 180);
+      const el = l + 2 * overhang, ew = w + 2 * overhang;
+      const base = el * ew * pitchFactor;
+      const final = base * (1 + waste/100);
+      return { base: fmt(base), adj: fmt(base), final: fmt(final), unit: U()?'m²':'ft²', factor: fmt(pitchFactor) };
+    }
+  },
+  paint: {
+    name: 'Paint Area Calculator', icon: '🎨',
+    formula: 'Area ÷ Coverage Rate = Litres needed',
+    fields: [
+      { id:'paint-area', label:'Total Wall Area', unit_m:'m²', unit_i:'ft²', placeholder:'0.00' },
+      { id:'paint-cov', label:'Coverage Rate', unit_m:'m²/L', unit_i:'ft²/L', placeholder:'10', default:'10' },
+      { id:'paint-coats', label:'Number of Coats', unit_m:'no.', unit_i:'no.', placeholder:'2', default:'2' },
+      { id:'paint-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'10', default:'10' }
+    ],
+    calc: (vals) => {
+      const area = parseFloat(vals['paint-area'])||0, cov = parseFloat(vals['paint-cov'])||10;
+      const coats = parseFloat(vals['paint-coats'])||2, waste = parseFloat(vals['paint-waste'])||10;
+      const litres = area * coats / cov;
+      const final = litres * (1 + waste/100);
+      return { base: fmt(area), adj: fmt(litres), final: fmt(final), unit: 'L', coverageNote: `${fmt(litres)} L base × waste = ${fmt(final)} L total` };
+    }
+  },
+  tile: {
+    name: 'Tiling Calculator', icon: '🟦',
+    formula: 'Tiles = Adj. Area ÷ Tile Area',
+    fields: [
+      { id:'tile-area', label:'Floor / Wall Area', unit_m:'m²', unit_i:'ft²', placeholder:'0.00' },
+      { id:'tile-l', label:'Tile Length', unit_m:'mm', unit_i:'in', placeholder:'600', default:'600' },
+      { id:'tile-w', label:'Tile Width', unit_m:'mm', unit_i:'in', placeholder:'600', default:'600' },
+      { id:'tile-grout', label:'Grout Joint', unit_m:'mm', unit_i:'in', placeholder:'5', default:'5' },
+      { id:'tile-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'12', default:'12' }
+    ],
+    calc: (vals) => {
+      const area = parseFloat(vals['tile-area'])||0;
+      const tl = parseFloat(vals['tile-l'])||600, tw = parseFloat(vals['tile-w'])||600;
+      const grout = parseFloat(vals['tile-grout'])||5;
+      const waste = parseFloat(vals['tile-waste'])||12;
+      const tileAreaMm = (tl + grout) * (tw + grout);
+      const tileAreaM2 = tileAreaMm / 1e6;
+      const base = Math.ceil(area / tileAreaM2);
+      const final = Math.ceil(base * (1 + waste/100));
+      return { base: fmt(area), adj: base, final, unit: 'tiles', tileAreaM2: fmt(tileAreaM2) };
+    }
+  },
+  plaster: {
+    name: 'Plaster Calculator', icon: '🪣',
+    formula: 'Volume = Area × Thickness',
+    fields: [
+      { id:'plas-area', label:'Wall / Ceiling Area', unit_m:'m²', unit_i:'ft²', placeholder:'0.00' },
+      { id:'plas-thick', label:'Plaster Thickness', unit_m:'mm', unit_i:'in', placeholder:'12', default:'12' },
+      { id:'plas-waste', label:'Waste %', unit_m:'%', unit_i:'%', placeholder:'10', default:'10' }
+    ],
+    calc: (vals) => {
+      const area = parseFloat(vals['plas-area'])||0, thick = parseFloat(vals['plas-thick'])||12;
+      const waste = parseFloat(vals['plas-waste'])||10;
+      const vol = area * (thick / 1000);
+      const finalVol = vol * (1 + waste/100);
+      const cementBags = fmt(finalVol * 6.4); // approx for 1:4 mix
+      const sand = fmt(finalVol * 4 / 1.5); // bags sand
+      return { base: fmt(vol), adj: fmt(finalVol), final: fmt(finalVol), unit: 'm³', cementBags, sand };
+    }
+  }
+};
+
+function setAreaCalc(name, el) {
+  const calc = areaCalcs[name];
+  if (!calc) return;
+  // Update tab highlights
+  if (el) {
+    document.querySelectorAll('#area-tabs .scroll-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+  const u = U();
+  const container = document.getElementById('area-calc-container');
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-icon">${calc.icon}</div>
+        <div>
+          <div class="card-title">${calc.name}</div>
+          <div class="card-sub" style="font-family:var(--ff-mono);font-size:11px">${calc.formula}</div>
+        </div>
+      </div>
+      <div class="form-row">
+        ${calc.fields.map(f => `
+          <div class="form-group">
+            <label class="form-label">${f.label}</label>
+            <div class="input-with-unit">
+              <input class="form-input" type="number" id="${f.id}" 
+                placeholder="${f.default || f.placeholder}" 
+                value="${f.default || ''}"
+                step="any" inputmode="decimal"
+                oninput="calcArea('${name}')">
+              <span class="input-unit">${u ? f.unit_m : f.unit_i}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="btn-group" style="margin-top:4px">
+        <button class="btn btn-primary" onclick="calcArea('${name}')">Calculate</button>
+        <button class="btn btn-secondary" onclick="resetAreaCalc('${name}')">Reset</button>
+      </div>
+      <div id="area-result" style="margin-top:0"></div>
+    </div>
+  `;
+}
+
+function getVals(calc) {
+  const vals = {};
+  calc.fields.forEach(f => {
+    vals[f.id] = document.getElementById(f.id)?.value || '';
+  });
+  return vals;
+}
+
+function calcArea(name) {
+  const calc = areaCalcs[name];
+  if (!calc) return;
+  const vals = getVals(calc);
+  const res = calc.calc(vals);
+  APP.currentCalcData = { type: 'calculation', calcType: 'area', calcName: name, calcLabel: calc.name, result: res, formula: calc.formula, inputs: vals };
+
+  const el = document.getElementById('area-result');
+  el.innerHTML = `
+    <div class="result-box">
+      <div class="result-label">Net Area (with openings deducted)</div>
+      <div class="result-value">${res.adj} <span>${res.unit || ''}</span></div>
+      <div class="result-grid">
+        <div class="result-item"><div class="ri-label">Gross Area</div><div class="ri-val">${res.base} ${res.unit||''}</div></div>
+        <div class="result-item"><div class="ri-label">Final + Waste</div><div class="ri-val">${res.final} ${res.unit||''}</div></div>
+        ${res.circ ? `<div class="result-item"><div class="ri-label">Circumference</div><div class="ri-val">${res.circ} ${U()?'m':'ft'}</div></div>` : ''}
+        ${res.factor ? `<div class="result-item"><div class="ri-label">Pitch Factor</div><div class="ri-val">${res.factor}</div></div>` : ''}
+        ${res.deductions ? `<div class="result-item"><div class="ri-label">Deductions</div><div class="ri-val">${res.deductions} ${res.unit||''}</div></div>` : ''}
+        ${res.cementBags ? `<div class="result-item"><div class="ri-label">Cement ~Bags</div><div class="ri-val">${res.cementBags}</div></div>` : ''}
+      </div>
+      <div class="formula-note">Formula: ${calc.formula}</div>
+    </div>
+    <div class="btn-group" style="margin-top:10px">
+      <button class="btn btn-secondary btn-sm" onclick="openSaveModal()">💾 Save Result</button>
+    </div>
+  `;
+}
+
+function resetAreaCalc(name) {
+  const calc = areaCalcs[name];
+  if (!calc) return;
+  calc.fields.forEach(f => {
+    const el = document.getElementById(f.id);
+    if (el) el.value = f.default || '';
+  });
+  document.getElementById('area-result').innerHTML = '';
+}
+
+/* ============================================================
+   UTILITY CALCULATORS
+   ============================================================ */
+const utilCalcs = {
+  concrete: {
+    name: 'Concrete Volume', icon: '🧱',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🧱</div><div><div class="card-title">Concrete Volume Calculator</div><div class="card-sub" style="font-family:var(--ff-mono);font-size:11px">V = L × W × D (slab) | V = π r² H (column)</div></div></div>
+        <div class="form-group">
+          <label class="form-label">Element Type</label>
+          <select class="form-select" id="con-type" onchange="renderConcreteFields()">
+            <option value="slab">Floor Slab</option>
+            <option value="footing_pad">Footing (Pad)</option>
+            <option value="footing_strip">Footing (Strip)</option>
+            <option value="column_rect">Column (Rectangular)</option>
+            <option value="column_circ">Column (Circular)</option>
+            <option value="trench">Trench</option>
+            <option value="beam">Beam</option>
+          </select>
+        </div>
+        <div id="con-fields"></div>
+        <div class="btn-group" style="margin-top:4px">
+          <button class="btn btn-primary" onclick="calcConcrete()">Calculate</button>
+          <button class="btn btn-secondary" onclick="document.getElementById('con-fields').querySelectorAll('input').forEach(i=>i.value='')">Reset</button>
+        </div>
+        <div id="con-result"></div>
+      </div>
+    `,
+    init: () => renderConcreteFields()
+  },
+  material: {
+    name: 'Material Estimator', icon: '🏗️',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🏗️</div><div><div class="card-title">Material Estimator</div><div class="card-sub">Cement, Sand, Aggregate, Blocks</div></div></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Mix Type</label>
+            <select class="form-select" id="mat-mix" onchange="calcMaterial()">
+              <option value="1:2:4">1:2:4 (Standard)</option>
+              <option value="1:1.5:3">1:1.5:3 (Strong)</option>
+              <option value="1:3:6">1:3:6 (Mass Fill)</option>
+              <option value="1:4">1:4 Mortar</option>
+              <option value="1:3">1:3 Mortar</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Concrete Volume</label>
+            <div class="input-with-unit"><input class="form-input" type="number" id="mat-vol" placeholder="1.00" step="any" inputmode="decimal" oninput="calcMaterial()"><span class="input-unit">m³</span></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Waste Factor %</label>
+          <div class="input-with-unit"><input class="form-input" type="number" id="mat-waste" value="10" step="any" inputmode="decimal" oninput="calcMaterial()"><span class="input-unit">%</span></div>
+        </div>
+        <div id="mat-result"></div>
+        <div class="divider"></div>
+        <div class="card-title" style="font-size:14px;margin-bottom:12px">Block / Brick Estimator</div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Wall Area</label><div class="input-with-unit"><input class="form-input" type="number" id="blk-area" placeholder="0.00" step="any" inputmode="decimal" oninput="calcBlocks()"><span class="input-unit">m²</span></div></div>
+          <div class="form-group"><label class="form-label">Block Type</label>
+            <select class="form-select" id="blk-type" onchange="calcBlocks()">
+              <option value="10.5">Standard Brick (230×110×76)</option>
+              <option value="12.5">Maxi Brick (290×140×90)</option>
+              <option value="10">140mm Block</option>
+              <option value="8.3">190mm Block</option>
+              <option value="6.25">290mm Block</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Waste %</label><div class="input-with-unit"><input class="form-input" type="number" id="blk-waste" value="10" step="any" inputmode="decimal" oninput="calcBlocks()"><span class="input-unit">%</span></div></div>
+        <div id="blk-result"></div>
+      </div>
+    `,
+    init: () => {}
+  },
+  converter: {
+    name: 'Unit Converter', icon: '🔄',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🔄</div><div><div class="card-title">Unit Converter</div></div></div>
+        <div class="form-group"><label class="form-label">Conversion Type</label>
+          <select class="form-select" id="conv-type" onchange="renderConverter()">
+            <optgroup label="Length">
+              <option value="mm_m">mm ↔ m</option>
+              <option value="m_ft">m ↔ ft</option>
+              <option value="m_cm">m ↔ cm</option>
+              <option value="inch_mm">inch ↔ mm</option>
+            </optgroup>
+            <optgroup label="Area">
+              <option value="m2_ft2">m² ↔ ft²</option>
+              <option value="ha_m2">ha ↔ m²</option>
+            </optgroup>
+            <optgroup label="Volume">
+              <option value="m3_ft3">m³ ↔ ft³</option>
+              <option value="L_m3">Litres ↔ m³</option>
+            </optgroup>
+            <optgroup label="Mass">
+              <option value="kg_ton">kg ↔ metric ton</option>
+              <option value="kg_lb">kg ↔ lb</option>
+              <option value="ton_lb">metric ton ↔ lb</option>
+            </optgroup>
+          </select>
+        </div>
+        <div id="conv-fields"></div>
+      </div>
+    `,
+    init: () => renderConverter()
+  },
+  slope: {
+    name: 'Slope / Gradient', icon: '📐',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon">📐</div><div><div class="card-title">Slope / Gradient Calculator</div></div></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Rise (vertical)</label><div class="input-with-unit"><input class="form-input" type="number" id="sl-rise" placeholder="0.00" step="any" inputmode="decimal" oninput="calcSlope()"><span class="input-unit">m</span></div></div>
+          <div class="form-group"><label class="form-label">Run (horizontal)</label><div class="input-with-unit"><input class="form-input" type="number" id="sl-run" placeholder="0.00" step="any" inputmode="decimal" oninput="calcSlope()"><span class="input-unit">m</span></div></div>
+        </div>
+        <div class="btn-group" style="margin-top:4px"><button class="btn btn-primary" onclick="calcSlope()">Calculate</button></div>
+        <div id="sl-result"></div>
+      </div>
+    `,
+    init: () => {}
+  },
+  perimeter: {
+    name: 'Perimeter Calculator', icon: '⬡',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon">⬡</div><div><div class="card-title">Perimeter Calculator</div></div></div>
+        <div class="form-group"><label class="form-label">Shape</label>
+          <select class="form-select" id="per-shape" onchange="renderPerimeter()">
+            <option value="rect">Rectangle</option><option value="square">Square</option>
+            <option value="circle">Circle</option><option value="triangle">Triangle</option>
+          </select>
+        </div>
+        <div id="per-fields"></div>
+      </div>
+    `,
+    init: () => renderPerimeter()
+  },
+  stairs: {
+    name: 'Stair Rise/Run', icon: '🪜',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🪜</div><div><div class="card-title">Stair Rise / Run Helper</div><div class="card-sub" style="font-family:var(--ff-mono);font-size:11px">2R + G = 620–640mm rule</div></div></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Total Rise (floor-to-floor)</label><div class="input-with-unit"><input class="form-input" type="number" id="st-rise" placeholder="3000" step="any" inputmode="decimal" oninput="calcStairs()"><span class="input-unit">mm</span></div></div>
+          <div class="form-group"><label class="form-label">Riser Height (preferred)</label><div class="input-with-unit"><input class="form-input" type="number" id="st-riser" placeholder="175" value="175" step="any" inputmode="decimal" oninput="calcStairs()"><span class="input-unit">mm</span></div></div>
+        </div>
+        <div class="btn-group" style="margin-top:4px"><button class="btn btn-primary" onclick="calcStairs()">Calculate</button></div>
+        <div id="st-result"></div>
+      </div>
+    `,
+    init: () => {}
+  },
+  mix: {
+    name: 'Mix Ratio Helper', icon: '🥣',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🥣</div><div><div class="card-title">Mix Ratio Helper</div><div class="card-sub">Concrete / Mortar / Plaster</div></div></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Mix Type</label>
+            <select class="form-select" id="mix-type" onchange="calcMix()">
+              <option value="concrete_124">Concrete 1:2:4</option>
+              <option value="concrete_1153">Concrete 1:1.5:3</option>
+              <option value="concrete_136">Concrete 1:3:6</option>
+              <option value="mortar_14">Mortar 1:4</option>
+              <option value="mortar_13">Mortar 1:3</option>
+              <option value="plaster_13">Plaster 1:3</option>
+              <option value="plaster_14">Plaster 1:4</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">Total Volume</label><div class="input-with-unit"><input class="form-input" type="number" id="mix-vol" placeholder="1.00" value="1" step="any" inputmode="decimal" oninput="calcMix()"><span class="input-unit">m³</span></div></div>
+        </div>
+        <div id="mix-result"></div>
+      </div>
+    `,
+    init: () => calcMix()
+  },
+  rebar: {
+    name: 'Rebar Spacing', icon: '🔩',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon">🔩</div><div><div class="card-title">Reinforcement Spacing Calculator</div></div></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Element Length</label><div class="input-with-unit"><input class="form-input" type="number" id="rb-len" placeholder="6000" step="any" inputmode="decimal" oninput="calcRebar()"><span class="input-unit">mm</span></div></div>
+          <div class="form-group"><label class="form-label">Cover (each end)</label><div class="input-with-unit"><input class="form-input" type="number" id="rb-cov" placeholder="40" value="40" step="any" inputmode="decimal" oninput="calcRebar()"><span class="input-unit">mm</span></div></div>
+          <div class="form-group"><label class="form-label">Bar Spacing</label><div class="input-with-unit"><input class="form-input" type="number" id="rb-sp" placeholder="200" value="200" step="any" inputmode="decimal" oninput="calcRebar()"><span class="input-unit">mm</span></div></div>
+          <div class="form-group"><label class="form-label">No. of Bars (manual)</label><div class="input-with-unit"><input class="form-input" type="number" id="rb-num" placeholder="—" step="1" inputmode="numeric" oninput="calcRebar()"><span class="input-unit">no.</span></div></div>
+        </div>
+        <div class="btn-group" style="margin-top:4px"><button class="btn btn-primary" onclick="calcRebar()">Calculate</button></div>
+        <div id="rb-result"></div>
+      </div>
+    `,
+    init: () => {}
+  },
+  percent: {
+    name: 'Percentage Calculator', icon: '%',
+    render: () => `
+      <div class="card">
+        <div class="card-header"><div class="card-icon" style="font-size:20px;font-weight:700">%</div><div><div class="card-title">Percentage Calculator</div></div></div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Value</label><input class="form-input" type="number" id="pct-val" placeholder="0.00" step="any" inputmode="decimal" oninput="calcPercent()"></div>
+          <div class="form-group"><label class="form-label">Percentage</label><div class="input-with-unit"><input class="form-input" type="number" id="pct-pct" placeholder="10" step="any" inputmode="decimal" oninput="calcPercent()"><span class="input-unit">%</span></div></div>
+        </div>
+        <div id="pct-result"></div>
+      </div>
+    `,
+    init: () => {}
+  }
+};
+
+function setUtilCalc(name, el) {
+  if (el) {
+    document.querySelectorAll('#util-tabs .scroll-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+  }
+  const calc = utilCalcs[name];
+  if (!calc) return;
+  document.getElementById('util-calc-container').innerHTML = calc.render();
+  calc.init();
+}
+
+/* --- CONCRETE HELPERS --- */
+function renderConcreteFields() {
+  const type = document.getElementById('con-type')?.value;
+  const u = U() ? 'm' : 'ft';
+  let html = '';
+  if (type === 'slab' || type === 'footing_pad') {
+    html = `<div class="form-row">
+      <div class="form-group"><label class="form-label">Length</label><div class="input-with-unit"><input class="form-input" type="number" id="con-l" placeholder="0.00" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Width</label><div class="input-with-unit"><input class="form-input" type="number" id="con-w" placeholder="0.00" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Depth / Thickness</label><div class="input-with-unit"><input class="form-input" type="number" id="con-d" placeholder="0.150" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Quantity</label><div class="input-with-unit"><input class="form-input" type="number" id="con-qty" placeholder="1" value="1" step="1" inputmode="numeric" oninput="calcConcrete()"><span class="input-unit">no.</span></div></div>
+    </div>`;
+  } else if (type === 'footing_strip') {
+    html = `<div class="form-row">
+      <div class="form-group"><label class="form-label">Length</label><div class="input-with-unit"><input class="form-input" type="number" id="con-l" placeholder="0.00" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Width</label><div class="input-with-unit"><input class="form-input" type="number" id="con-w" placeholder="0.60" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Depth</label><div class="input-with-unit"><input class="form-input" type="number" id="con-d" placeholder="0.30" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+    </div>`;
+  } else if (type === 'column_rect') {
+    html = `<div class="form-row">
+      <div class="form-group"><label class="form-label">Width</label><div class="input-with-unit"><input class="form-input" type="number" id="con-w" placeholder="0.30" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Depth</label><div class="input-with-unit"><input class="form-input" type="number" id="con-d" placeholder="0.30" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Height</label><div class="input-with-unit"><input class="form-input" type="number" id="con-h" placeholder="3.00" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Quantity</label><div class="input-with-unit"><input class="form-input" type="number" id="con-qty" placeholder="1" value="1" step="1" inputmode="numeric" oninput="calcConcrete()"><span class="input-unit">no.</span></div></div>
+    </div>`;
+  } else if (type === 'column_circ') {
+    html = `<div class="form-row">
+      <div class="form-group"><label class="form-label">Diameter</label><div class="input-with-unit"><input class="form-input" type="number" id="con-dia" placeholder="0.40" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Height</label><div class="input-with-unit"><input class="form-input" type="number" id="con-h" placeholder="3.00" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Quantity</label><div class="input-with-unit"><input class="form-input" type="number" id="con-qty" placeholder="1" value="1" step="1" inputmode="numeric" oninput="calcConcrete()"><span class="input-unit">no.</span></div></div>
+    </div>`;
+  } else if (type === 'trench' || type === 'beam') {
+    html = `<div class="form-row">
+      <div class="form-group"><label class="form-label">Length</label><div class="input-with-unit"><input class="form-input" type="number" id="con-l" placeholder="0.00" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Width</label><div class="input-with-unit"><input class="form-input" type="number" id="con-w" placeholder="0.45" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Depth</label><div class="input-with-unit"><input class="form-input" type="number" id="con-d" placeholder="0.30" step="any" inputmode="decimal" oninput="calcConcrete()"><span class="input-unit">${u}</span></div></div>
+      <div class="form-group"><label class="form-label">Quantity</label><div class="input-with-unit"><input class="form-input" type="number" id="con-qty" placeholder="1" value="1" step="1" inputmode="numeric" oninput="calcConcrete()"><span class="input-unit">no.</span></div></div>
+    </div>`;
+  }
+  document.getElementById('con-fields').innerHTML = html;
+}
+
+function calcConcrete() {
+  const type = document.getElementById('con-type')?.value;
+  const g = id => parseFloat(document.getElementById(id)?.value) || 0;
+  let vol = 0;
+  if (type === 'column_circ') {
+    const r = g('con-dia') / 2, h = g('con-h'), qty = g('con-qty') || 1;
+    vol = Math.PI * r * r * h * qty;
+  } else if (type === 'column_rect') {
+    vol = g('con-w') * g('con-d') * g('con-h') * (g('con-qty') || 1);
+  } else {
+    vol = g('con-l') * g('con-w') * g('con-d') * (g('con-qty') || 1);
+  }
+  if (!vol) { document.getElementById('con-result').innerHTML = ''; return; }
+  const v = fmt(vol);
+  // 1:2:4 mix estimate
+  const cement = fmt(vol * 8), sand = fmt(vol * 0.44), agg = fmt(vol * 0.88);
+  const el = document.getElementById('con-result');
+  el.innerHTML = `<div class="result-box">
+    <div class="result-label">Concrete Volume</div>
+    <div class="result-value">${v} <span>m³</span></div>
+    <div class="result-grid">
+      <div class="result-item"><div class="ri-label">Cement Bags (1:2:4)</div><div class="ri-val">${cement} bags</div></div>
+      <div class="result-item"><div class="ri-label">Sand (approx.)</div><div class="ri-val">${sand} m³</div></div>
+      <div class="result-item"><div class="ri-label">Aggregate (approx.)</div><div class="ri-val">${agg} m³</div></div>
+      <div class="result-item"><div class="ri-label">Volume in L</div><div class="ri-val">${fmt(vol*1000)} L</div></div>
+    </div>
+    <div class="formula-note">Mix yields approx. 1m³ from: 8 bags cement, 0.44m³ sand, 0.88m³ aggregate</div>
+  </div>
+  <div class="btn-group" style="margin-top:10px"><button class="btn btn-secondary btn-sm" onclick="openSaveModal()">💾 Save Result</button></div>`;
+  APP.currentCalcData = { type:'calculation', calcType:'utility', calcLabel:'Concrete Volume', result:{vol:v}, inputs:{type} };
+}
+
+function calcMaterial() {
+  const vol = parseFloat(document.getElementById('mat-vol')?.value) || 0;
+  const mix = document.getElementById('mat-mix')?.value || '1:2:4';
+  const waste = parseFloat(document.getElementById('mat-waste')?.value) || 0;
+  if (!vol) { document.getElementById('mat-result').innerHTML = ''; return; }
+  const wf = 1 + waste/100;
+  let cement=0, sand=0, agg=0;
+  if (mix === '1:2:4') { cement=fmt(vol*wf*8); sand=fmt(vol*wf*0.44); agg=fmt(vol*wf*0.88); }
+  else if (mix === '1:1.5:3') { cement=fmt(vol*wf*10); sand=fmt(vol*wf*0.33); agg=fmt(vol*wf*0.66); }
+  else if (mix === '1:3:6') { cement=fmt(vol*wf*5.5); sand=fmt(vol*wf*0.66); agg=fmt(vol*wf*1.32); }
+  else if (mix === '1:4') { cement=fmt(vol*wf*6.4); sand=fmt(vol*wf*1.6); }
+  else if (mix === '1:3') { cement=fmt(vol*wf*8.5); sand=fmt(vol*wf*1.3); }
+  document.getElementById('mat-result').innerHTML = `<div class="result-box">
+    <div class="result-grid">
+      <div class="result-item"><div class="ri-label">Cement (50kg bags)</div><div class="ri-val">${cement}</div></div>
+      <div class="result-item"><div class="ri-label">Sand</div><div class="ri-val">${sand} m³</div></div>
+      ${agg ? `<div class="result-item"><div class="ri-label">Aggregate</div><div class="ri-val">${agg} m³</div></div>` : ''}
+    </div>
+  </div>`;
+}
+
+function calcBlocks() {
+  const area = parseFloat(document.getElementById('blk-area')?.value) || 0;
+  const per = parseFloat(document.getElementById('blk-type')?.value) || 10;
+  const waste = parseFloat(document.getElementById('blk-waste')?.value) || 0;
+  if (!area) { document.getElementById('blk-result').innerHTML = ''; return; }
+  const base = Math.ceil(area * per);
+  const final = Math.ceil(base * (1 + waste/100));
+  document.getElementById('blk-result').innerHTML = `<div class="result-box">
+    <div class="result-label">Blocks / Bricks Required</div>
+    <div class="result-value">${final} <span>units</span></div>
+    <div class="result-grid">
+      <div class="result-item"><div class="ri-label">Base count</div><div class="ri-val">${base}</div></div>
+      <div class="result-item"><div class="ri-label">Inc. waste</div><div class="ri-val">${final}</div></div>
+    </div>
+  </div>`;
+}
+
+const convRates = {
+  mm_m: { from:'mm', to:'m', rate: 1/1000 },
+  m_ft: { from:'m', to:'ft', rate: 3.28084 },
+  m_cm: { from:'m', to:'cm', rate: 100 },
+  inch_mm: { from:'in', to:'mm', rate: 25.4 },
+  m2_ft2: { from:'m²', to:'ft²', rate: 10.7639 },
+  ha_m2: { from:'ha', to:'m²', rate: 10000 },
+  m3_ft3: { from:'m³', to:'ft³', rate: 35.3147 },
+  L_m3: { from:'L', to:'m³', rate: 0.001 },
+  kg_ton: { from:'kg', to:'t', rate: 0.001 },
+  kg_lb: { from:'kg', to:'lb', rate: 2.20462 },
+  ton_lb: { from:'t', to:'lb', rate: 2204.62 }
+};
+function renderConverter() {
+  const type = document.getElementById('conv-type')?.value;
+  const r = convRates[type];
+  if (!r) return;
+  document.getElementById('conv-fields').innerHTML = `
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">From (${r.from})</label><div class="input-with-unit"><input class="form-input" type="number" id="conv-from" placeholder="0.00" step="any" inputmode="decimal" oninput="doConvert(1)"><span class="input-unit">${r.from}</span></div></div>
+      <div class="form-group"><label class="form-label">To (${r.to})</label><div class="input-with-unit"><input class="form-input" type="number" id="conv-to" placeholder="0.00" step="any" inputmode="decimal" oninput="doConvert(2)"><span class="input-unit">${r.to}</span></div></div>
+    </div>
+    <div class="formula-note" style="margin-top:8px">1 ${r.from} = ${fmt(r.rate)} ${r.to}</div>
+  `;
+}
+function doConvert(dir) {
+  const type = document.getElementById('conv-type')?.value;
+  const r = convRates[type];
+  if (!r) return;
+  if (dir === 1) {
+    const v = parseFloat(document.getElementById('conv-from')?.value) || 0;
+    document.getElementById('conv-to').value = fmt(v * r.rate);
+  } else {
+    const v = parseFloat(document.getElementById('conv-to')?.value) || 0;
+    document.getElementById('conv-from').value = fmt(v / r.rate);
+  }
+}
+
+function calcSlope() {
+  const rise = parseFloat(document.getElementById('sl-rise')?.value) || 0;
+  const run = parseFloat(document.getElementById('sl-run')?.value) || 0;
+  if (!run) { document.getElementById('sl-result').innerHTML = ''; return; }
+  const deg = fmt(Math.atan(rise/run) * 180/Math.PI);
+  const pct = fmt((rise/run)*100);
+  const ratio = `1:${fmt(run/rise)}`;
+  document.getElementById('sl-result').innerHTML = `<div class="result-box">
+    <div class="result-grid">
+      <div class="result-item"><div class="ri-label">Angle</div><div class="ri-val">${deg}°</div></div>
+      <div class="result-item"><div class="ri-label">Grade %</div><div class="ri-val">${pct}%</div></div>
+      <div class="result-item"><div class="ri-label">Ratio</div><div class="ri-val">${rise ? ratio : '—'}</div></div>
+      <div class="result-item"><div class="ri-label">Hypotenuse</div><div class="ri-val">${fmt(Math.sqrt(rise*rise+run*run))} m</div></div>
+    </div>
+  </div>`;
+}
+
+function renderPerimeter() {
+  const shape = document.getElementById('per-shape')?.value;
+  const u = U() ? 'm' : 'ft';
+  let html = '';
+  if (shape === 'rect') html = `<div class="form-row"><div class="form-group"><label class="form-label">Length</label><div class="input-with-unit"><input class="form-input" type="number" id="per-l" placeholder="0" step="any" inputmode="decimal" oninput="calcPerimeter()"><span class="input-unit">${u}</span></div></div><div class="form-group"><label class="form-label">Width</label><div class="input-with-unit"><input class="form-input" type="number" id="per-w" placeholder="0" step="any" inputmode="decimal" oninput="calcPerimeter()"><span class="input-unit">${u}</span></div></div></div>`;
+  else if (shape === 'square') html = `<div class="form-group"><label class="form-label">Side</label><div class="input-with-unit"><input class="form-input" type="number" id="per-s" placeholder="0" step="any" inputmode="decimal" oninput="calcPerimeter()"><span class="input-unit">${u}</span></div></div>`;
+  else if (shape === 'circle') html = `<div class="form-group"><label class="form-label">Radius</label><div class="input-with-unit"><input class="form-input" type="number" id="per-r" placeholder="0" step="any" inputmode="decimal" oninput="calcPerimeter()"><span class="input-unit">${u}</span></div></div>`;
+  else if (shape === 'triangle') html = `<div class="form-row"><div class="form-group"><label class="form-label">Side A</label><div class="input-with-unit"><input class="form-input" type="number" id="per-a" placeholder="0" step="any" inputmode="decimal" oninput="calcPerimeter()"><span class="input-unit">${u}</span></div></div><div class="form-group"><label class="form-label">Side B</label><div class="input-with-unit"><input class="form-input" type="number" id="per-b" placeholder="0" step="any" inputmode="decimal" oninput="calcPerimeter()"><span class="input-unit">${u}</span></div></div><div class="form-group"><label class="form-label">Side C</label><div class="input-with-unit"><input class="form-input" type="number" id="per-c" placeholder="0" step="any" inputmode="decimal" oninput="calcPerimeter()"><span class="input-unit">${u}</span></div></div></div>`;
+  document.getElementById('per-fields').innerHTML = html + `<div class="btn-group" style="margin-top:8px"><button class="btn btn-primary" onclick="calcPerimeter()">Calculate</button></div><div id="per-result"></div>`;
+}
+
+function calcPerimeter() {
+  const shape = document.getElementById('per-shape')?.value;
+  const g = id => parseFloat(document.getElementById(id)?.value) || 0;
+  const u = U() ? 'm' : 'ft';
+  let p = 0;
+  if (shape === 'rect') p = 2 * (g('per-l') + g('per-w'));
+  else if (shape === 'square') p = 4 * g('per-s');
+  else if (shape === 'circle') p = 2 * Math.PI * g('per-r');
+  else if (shape === 'triangle') p = g('per-a') + g('per-b') + g('per-c');
+  if (!p) return;
+  document.getElementById('per-result').innerHTML = `<div class="result-box"><div class="result-label">Perimeter</div><div class="result-value">${fmt(p)} <span>${u}</span></div></div>`;
+}
+
+function calcStairs() {
+  const total = parseFloat(document.getElementById('st-rise')?.value) || 0;
+  const riserPref = parseFloat(document.getElementById('st-riser')?.value) || 175;
+  if (!total) return;
+  const steps = Math.round(total / riserPref);
+  const actualRiser = fmt(total / steps);
+  const going = fmt(620 - actualRiser); // 2R + G = 620
+  document.getElementById('st-result').innerHTML = `<div class="result-box">
+    <div class="result-grid">
+      <div class="result-item"><div class="ri-label">Number of Steps</div><div class="ri-val">${steps}</div></div>
+      <div class="result-item"><div class="ri-label">Actual Riser Height</div><div class="ri-val">${actualRiser} mm</div></div>
+      <div class="result-item"><div class="ri-label">Recommended Going</div><div class="ri-val">${going} mm</div></div>
+      <div class="result-item"><div class="ri-label">Total Going (L)</div><div class="ri-val">${fmt(going * steps)} mm</div></div>
+    </div>
+    <div class="formula-note">Rule: 2R + G = 620–640mm | R=${actualRiser}, G=${going}, 2R+G=${fmt(2*actualRiser+going)}</div>
+  </div>`;
+}
+
+const mixData = {
+  concrete_124: { parts:[1,2,4], names:['Cement','Sand','Aggregate'], bagFactor: 8 },
+  concrete_1153: { parts:[1,1.5,3], names:['Cement','Sand','Aggregate'], bagFactor: 10 },
+  concrete_136: { parts:[1,3,6], names:['Cement','Sand','Aggregate'], bagFactor: 5.5 },
+  mortar_14: { parts:[1,4], names:['Cement','Sand'], bagFactor: 6.4 },
+  mortar_13: { parts:[1,3], names:['Cement','Sand'], bagFactor: 8.5 },
+  plaster_13: { parts:[1,3], names:['Cement','Sand'], bagFactor: 7 },
+  plaster_14: { parts:[1,4], names:['Cement','Sand'], bagFactor: 5.5 }
+};
+function calcMix() {
+  const type = document.getElementById('mix-type')?.value;
+  const vol = parseFloat(document.getElementById('mix-vol')?.value) || 1;
+  const m = mixData[type]; if (!m) return;
+  const total = m.parts.reduce((a,b) => a+b, 0);
+  const cement_bags = fmt(vol * m.bagFactor);
+  const rows = m.parts.map((p,i) => `<div class="result-item"><div class="ri-label">${m.names[i]}</div><div class="ri-val">${i===0 ? cement_bags + ' bags' : fmt(vol * p/total * 1.5) + ' m³'}</div></div>`).join('');
+  document.getElementById('mix-result').innerHTML = `<div class="result-box"><div class="result-label">For ${vol} m³</div><div class="result-grid">${rows}</div></div>`;
+}
+
+function calcRebar() {
+  const len = parseFloat(document.getElementById('rb-len')?.value) || 0;
+  const cov = parseFloat(document.getElementById('rb-cov')?.value) || 40;
+  const sp = parseFloat(document.getElementById('rb-sp')?.value) || 200;
+  const manual = parseInt(document.getElementById('rb-num')?.value) || 0;
+  if (!len) return;
+  const effLen = len - 2 * cov;
+  const calcNum = Math.floor(effLen / sp) + 1;
+  const num = manual > 0 ? manual : calcNum;
+  const actualSpacing = fmt(effLen / (num - 1 || 1));
+  document.getElementById('rb-result').innerHTML = `<div class="result-box">
+    <div class="result-grid">
+      <div class="result-item"><div class="ri-label">Bars Required</div><div class="ri-val">${num} no.</div></div>
+      <div class="result-item"><div class="ri-label">Actual Spacing</div><div class="ri-val">${actualSpacing} mm</div></div>
+      <div class="result-item"><div class="ri-label">Effective Length</div><div class="ri-val">${fmt(effLen)} mm</div></div>
+    </div>
+  </div>`;
+}
+
+function calcPercent() {
+  const val = parseFloat(document.getElementById('pct-val')?.value) || 0;
+  const pct = parseFloat(document.getElementById('pct-pct')?.value) || 0;
+  const amount = fmt(val * pct / 100);
+  const added = fmt(val + val * pct / 100);
+  const sub = fmt(val - val * pct / 100);
+  document.getElementById('pct-result').innerHTML = `<div class="result-box">
+    <div class="result-grid">
+      <div class="result-item"><div class="ri-label">${pct}% of ${val}</div><div class="ri-val">${amount}</div></div>
+      <div class="result-item"><div class="ri-label">${val} + ${pct}%</div><div class="ri-val">${added}</div></div>
+      <div class="result-item"><div class="ri-label">${val} − ${pct}%</div><div class="ri-val">${sub}</div></div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   INSPECTION SYSTEM
+   ============================================================ */
+const CHECKLIST_TEMPLATE = [
+  { id:'A', title:'A. General Site', icon:'🏗️', items:[
+    { id:'A1', label:'Site tidy / housekeeping' },
+    { id:'A2', label:'Access routes clear' },
+    { id:'A3', label:'Signage in place' },
+    { id:'A4', label:'Drawings / specifications available on site' },
+    { id:'A5', label:'Toolbox talk conducted' },
+    { id:'A6', label:'Daily briefing complete' }
+  ]},
+  { id:'B', title:'B. Safety', icon:'⛑️', items:[
+    { id:'B1', label:'PPE worn correctly by all workers' },
+    { id:'B2', label:'Barricading / demarcation in place' },
+    { id:'B3', label:'Fall protection in place' },
+    { id:'B4', label:'Excavation safety compliant' },
+    { id:'B5', label:'Scaffolding inspected and tagged' },
+    { id:'B6', label:'Electrical hazards controlled' },
+    { id:'B7', label:'Fire extinguishers available and serviced' },
+    { id:'B8', label:'First aid kit available' },
+    { id:'B9', label:'Emergency contacts displayed' }
+  ]},
+  { id:'C', title:'C. Quality', icon:'✅', items:[
+    { id:'C1', label:'Work matches approved drawings' },
+    { id:'C2', label:'Dimensions checked and correct' },
+    { id:'C3', label:'Levels checked and compliant' },
+    { id:'C4', label:'Materials approved and correct' },
+    { id:'C5', label:'Workmanship acceptable' },
+    { id:'C6', label:'Concrete curing compliant' },
+    { id:'C7', label:'Reinforcement checked' },
+    { id:'C8', label:'Finishes acceptable' },
+    { id:'C9', label:'Snag items identified and recorded' }
+  ]},
+  { id:'D', title:'D. Progress / Activity', icon:'📊', items:[
+    { id:'D1', label:'Work completed as planned today' },
+    { id:'D2', label:'Labour on site as required' },
+    { id:'D3', label:'Equipment on site and operational' },
+    { id:'D4', label:'Materials delivered as scheduled' },
+    { id:'D5', label:'No significant delays encountered' },
+    { id:'D6', label:'Weather impact on programme' },
+    { id:'D7', label:'Outstanding issues documented' }
+  ]}
+];
+
+// State for checklist responses
+let checklistState = {};
+
+function buildChecklistDOM() {
+  const container = document.getElementById('checklist-container');
+  container.innerHTML = CHECKLIST_TEMPLATE.map(section => `
+    <div class="checklist-section" id="cs-${section.id}">
+      <div class="checklist-section-header" onclick="toggleSection('${section.id}')">
+        <span style="font-size:18px">${section.icon}</span>
+        <span class="cs-title">${section.title}</span>
+        <span class="cs-count" id="cs-count-${section.id}">0/${section.items.length}</span>
+        <span class="cs-chevron">▼</span>
+      </div>
+      <div class="checklist-items">
+        ${section.items.map(item => `
+          <div class="checklist-item">
+            <div class="ci-row">
+              <span class="ci-label">${item.label}</span>
+              <div class="ci-controls">
+                <button class="radio-btn pass" onclick="setCheck('${item.id}','pass',this)">P</button>
+                <button class="radio-btn fail" onclick="setCheck('${item.id}','fail',this)">F</button>
+                <button class="radio-btn na" onclick="setCheck('${item.id}','na',this)">N/A</button>
+              </div>
+            </div>
+            <input class="ci-comment" id="ci-comment-${item.id}" placeholder="Comment / corrective action..." 
+              oninput="checklistState['${item.id}'] && (checklistState['${item.id}'].comment=this.value)">
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+  resetChecklist();
+}
+
+function toggleSection(id) {
+  document.getElementById('cs-' + id).classList.toggle('open');
+}
+
+function setCheck(itemId, val, btn) {
+  // Update state
+  if (!checklistState[itemId]) checklistState[itemId] = {};
+  checklistState[itemId].value = val;
+  // Update UI
+  const section = btn.closest('.checklist-item');
+  section.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // Show/hide comment
+  const comment = document.getElementById('ci-comment-' + itemId);
+  if (comment) {
+    comment.classList.toggle('visible', val === 'fail');
+  }
+  updateChecklistSummary();
+}
+
+function updateChecklistSummary() {
+  let pass = 0, fail = 0, na = 0;
+  Object.values(checklistState).forEach(s => {
+    if (s.value === 'pass') pass++;
+    else if (s.value === 'fail') fail++;
+    else if (s.value === 'na') na++;
+  });
+  document.getElementById('sum-pass').textContent = pass;
+  document.getElementById('sum-fail').textContent = fail;
+  document.getElementById('sum-na').textContent = na;
+  const total = pass + fail + na;
+  // Update section counts
+  CHECKLIST_TEMPLATE.forEach(section => {
+    const answered = section.items.filter(item => checklistState[item.id]?.value).length;
+    const el = document.getElementById('cs-count-' + section.id);
+    if (el) el.textContent = `${answered}/${section.items.length}`;
+  });
+  // Overall status
+  const status = document.getElementById('overall-status');
+  if (total === 0) { status.textContent = 'Not Started'; status.style.color = 'var(--text-muted)'; }
+  else if (fail > 0) { status.textContent = `⚠ Non-Compliant — ${fail} Failed Item${fail>1?'s':''}`;  status.style.color = 'var(--danger)'; }
+  else if (total < 10) { status.textContent = 'In Progress'; status.style.color = 'var(--warn)'; }
+  else { status.textContent = '✓ Compliant — All Checked'; status.style.color = 'var(--success)'; }
+}
+
+function resetChecklist() {
+  checklistState = {};
+  document.querySelectorAll('.radio-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.ci-comment').forEach(c => { c.classList.remove('visible'); c.value = ''; });
+  updateChecklistSummary();
+}
+
+function startNewInspection() {
+  APP.currentInspectionId = null;
+  document.getElementById('insp-list-view').style.display = 'none';
+  document.getElementById('insp-form-view').style.display = 'block';
+  document.getElementById('insp-form-title').textContent = 'New Inspection';
+  // Reset form
+  ['i-project','i-site','i-client','i-contractor','i-inspector','i-zone','i-ref','i-notes','i-ack-inspector','i-ack-contractor'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  // Set default inspector from settings
+  const inspector = APP.settings.inspector || '';
+  document.getElementById('i-inspector').value = inspector;
+  // Set current datetime
+  const now = new Date();
+  const local = new Date(now - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  document.getElementById('i-datetime').value = local;
+  // Reset checklist
+  resetChecklist();
+  // Open first section
+  document.getElementById('cs-A')?.classList.add('open');
+}
+
+function backToInspList() {
+  document.getElementById('insp-list-view').style.display = 'block';
+  document.getElementById('insp-form-view').style.display = 'none';
+}
+
+async function saveInspection() {
+  const g = id => document.getElementById(id)?.value || '';
+  const project = g('i-project'), site = g('i-site');
+  if (!project && !site) { toast('Please enter a project or site name.', 'error'); return; }
+  const pass = parseInt(document.getElementById('sum-pass').textContent) || 0;
+  const fail = parseInt(document.getElementById('sum-fail').textContent) || 0;
+  const na = parseInt(document.getElementById('sum-na').textContent) || 0;
+  const record = {
+    type: 'inspection',
+    project, site,
+    client: g('i-client'),
+    contractor: g('i-contractor'),
+    inspector: g('i-inspector'),
+    datetime: g('i-datetime'),
+    weather: g('i-weather'),
+    inspType: g('i-type'),
+    zone: g('i-zone'),
+    ref: g('i-ref'),
+    notes: g('i-notes'),
+    ackInspector: g('i-ack-inspector'),
+    ackContractor: g('i-ack-contractor'),
+    checklistState: JSON.parse(JSON.stringify(checklistState)),
+    summary: { pass, fail, na },
+    status: fail > 0 ? 'non-compliant' : (pass + na > 0 ? 'compliant' : 'draft'),
+    date: new Date().toISOString()
+  };
+  if (APP.currentInspectionId) {
+    await db.inspections.update(APP.currentInspectionId, record);
+    toast('Inspection updated.', 'success');
+  } else {
+    const id = await db.inspections.add(record);
+    APP.currentInspectionId = id;
+    toast('Inspection saved.', 'success');
+  }
+  await loadDraftInspections();
+  await refreshDashboard();
+}
+
+async function loadDraftInspections() {
+  const inspections = await db.inspections.orderBy('date').reverse().limit(5).toArray();
+  const el = document.getElementById('draft-inspections');
+  if (!inspections.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No Inspections Yet</div><div class="empty-sub">Tap "New Inspection" to start.</div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="section-title">Recent Inspections</div>` + inspections.map(insp => `
+    <div class="history-item" onclick="openInspection(${insp.id})">
+      <div class="hi-icon">📋</div>
+      <div class="hi-body">
+        <div class="hi-title">${insp.project || 'Unnamed Project'} — ${insp.site || 'No Site'}</div>
+        <div class="hi-meta">
+          <span>${new Date(insp.date).toLocaleDateString()}</span>
+          <span>${insp.inspector || '—'}</span>
+          <span>${insp.inspType || '—'}</span>
+        </div>
+      </div>
+      <span class="badge badge-${insp.status === 'compliant' ? 'success' : insp.status === 'non-compliant' ? 'danger' : 'muted'}">${insp.status || 'draft'}</span>
+    </div>
+  `).join('');
+}
+
+async function openInspection(id) {
+  const insp = await db.inspections.get(id);
+  if (!insp) return;
+  APP.currentInspectionId = id;
+  startNewInspection();
+  // Fill in details
+  document.getElementById('insp-form-title').textContent = 'Edit Inspection';
+  const fields = ['project','site','client','contractor','inspector','zone','ref','notes','ackInspector','ackContractor'];
+  fields.forEach(f => {
+    const el = document.getElementById('i-' + f.replace(/([A-Z])/g, m => '-' + m.toLowerCase()));
+    if (el && insp[f]) el.value = insp[f];
+  });
+  if (insp.datetime) document.getElementById('i-datetime').value = insp.datetime.slice(0,16);
+  if (insp.weather) document.getElementById('i-weather').value = insp.weather;
+  if (insp.inspType) document.getElementById('i-type').value = insp.inspType;
+  // Restore checklist
+  if (insp.checklistState) {
+    checklistState = JSON.parse(JSON.stringify(insp.checklistState));
+    // Restore UI state
+    Object.entries(checklistState).forEach(([itemId, state]) => {
+      if (!state.value) return;
+      const section = document.querySelector(`[onclick="setCheck('${itemId}','${state.value}',this)"]`);
+      if (section) { section.classList.add('active'); }
+      if (state.value === 'fail') {
+        const comment = document.getElementById('ci-comment-' + itemId);
+        if (comment) { comment.classList.add('visible'); if (state.comment) comment.value = state.comment; }
+      }
+    });
+    updateChecklistSummary();
+  }
+}
+
+function exportInspectionCSV() {
+  const g = id => document.getElementById(id)?.value || '';
+  const rows = [['Item ID', 'Item', 'Result', 'Comment']];
+  CHECKLIST_TEMPLATE.forEach(section => {
+    section.items.forEach(item => {
+      const state = checklistState[item.id] || {};
+      rows.push([item.id, item.label, state.value || 'not set', state.comment || '']);
+    });
+  });
+  const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  downloadFile(csv, `inspection-${g('i-project')}-${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+  toast('Inspection exported.', 'success');
+}
+
+function printInspection() { window.print(); }
+
+/* ============================================================
+   SAVE MODAL
+   ============================================================ */
+function openSaveModal() {
+  if (!APP.currentCalcData) return;
+  const res = APP.currentCalcData.result;
+  document.getElementById('save-project').value = APP.settings.lastProject || '';
+  document.getElementById('save-result-preview').innerHTML = `
+    <div class="result-box" style="margin:0">
+      <div class="result-label">${APP.currentCalcData.calcLabel || 'Calculation'}</div>
+      <div class="result-value">${Object.values(res)[0]} <span>${res.unit || ''}</span></div>
+    </div>`;
+  document.getElementById('save-modal').classList.add('open');
+}
+function closeSaveModal(e) {
+  if (e && e.target !== document.getElementById('save-modal')) return;
+  document.getElementById('save-modal').classList.remove('open');
+}
+async function doSaveCalc() {
+  const title = document.getElementById('save-title').value || APP.currentCalcData?.calcLabel || 'Calculation';
+  const project = document.getElementById('save-project').value;
+  const note = document.getElementById('save-note').value;
+  const record = { ...APP.currentCalcData, title, project, note, date: new Date().toISOString() };
+  await db.calculations.add(record);
+  if (project) saveSetting('lastProject', project);
+  toast('Result saved.', 'success');
+  closeSaveModal();
+  await refreshDashboard();
+}
+
+/* ============================================================
+   HISTORY
+   ============================================================ */
+let historyTypeFilter = 'all';
+async function loadHistory() {
+  const search = document.getElementById('history-search')?.value?.toLowerCase() || '';
+  let records = [];
+  if (historyTypeFilter !== 'inspection') {
+    const calcs = await db.calculations.orderBy('date').reverse().toArray();
+    records.push(...calcs.map(r => ({ ...r, _type: 'calculation' })));
+  }
+  if (historyTypeFilter !== 'calculation') {
+    const inspections = await db.inspections.orderBy('date').reverse().toArray();
+    records.push(...inspections.map(r => ({ ...r, _type: 'inspection' })));
+  }
+  records.sort((a, b) => new Date(b.date) - new Date(a.date));
+  if (search) records = records.filter(r => {
+    const str = JSON.stringify(r).toLowerCase();
+    return str.includes(search);
+  });
+  const el = document.getElementById('history-list');
+  if (!records.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🗂️</div><div class="empty-title">No Records Found</div><div class="empty-sub">Saved calculations and inspections appear here.</div></div>`;
+    return;
+  }
+  el.innerHTML = records.map(r => {
+    const isInsp = r._type === 'inspection';
+    const icon = isInsp ? '📋' : '📐';
+    const title = isInsp ? `${r.project || 'Project'} — ${r.site || 'Site'}` : (r.title || r.calcLabel || 'Calculation');
+    const meta = isInsp ? `${r.inspector || ''} • ${r.inspType || ''}` : `${r.calcLabel || ''} • ${r.project || ''}`;
+    const badgeClass = isInsp ? (r.status === 'compliant' ? 'badge-success' : r.status === 'non-compliant' ? 'badge-danger' : 'badge-muted') : 'badge-info';
+    const badgeText = isInsp ? (r.status || 'draft') : 'calc';
+    return `<div class="history-item">
+      <div class="hi-icon">${icon}</div>
+      <div class="hi-body">
+        <div class="hi-title">${title}</div>
+        <div class="hi-meta">
+          <span>${new Date(r.date).toLocaleDateString()}</span>
+          <span>${meta}</span>
+        </div>
+      </div>
+      <div class="hi-actions">
+        <span class="badge ${badgeClass}">${badgeText}</span>
+        <button class="btn btn-danger btn-sm btn-icon" onclick="deleteRecord(event,'${r._type}',${r.id})">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterHistory() { loadHistory(); }
+function filterHistoryType(type, btn) {
+  historyTypeFilter = type;
+  document.querySelectorAll('.scroll-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  loadHistory();
+}
+
+async function deleteRecord(e, type, id) {
+  e.stopPropagation();
+  showConfirm('Delete Record', 'This cannot be undone. Delete this record?', async () => {
+    if (type === 'calculation') await db.calculations.delete(id);
+    else await db.inspections.delete(id);
+    toast('Record deleted.', 'info');
+    loadHistory();
+    refreshDashboard();
+  });
+}
+
+/* ============================================================
+   EXPORT / IMPORT
+   ============================================================ */
+async function exportAllCSV() {
+  const calcs = await db.calculations.toArray();
+  const inspections = await db.inspections.toArray();
+  let csv = 'Type,Title/Project,Date,Details\n';
+  calcs.forEach(c => { csv += `"calculation","${c.title || ''}","${c.date}","${c.calcLabel || ''}"\n`; });
+  inspections.forEach(i => { csv += `"inspection","${i.project || ''} - ${i.site || ''}","${i.date}","${i.status || ''}"\n`; });
+  downloadFile(csv, `fieldpro-export-${new Date().toISOString().slice(0,10)}.csv`, 'text/csv');
+  toast('Export complete.', 'success');
+}
+
+async function exportJSON() {
+  const calcs = await db.calculations.toArray();
+  const inspections = await db.inspections.toArray();
+  const settings = await db.settings.toArray();
+  const data = { version: 1, exported: new Date().toISOString(), calculations: calcs, inspections, settings };
+  downloadFile(JSON.stringify(data, null, 2), `fieldpro-backup-${new Date().toISOString().slice(0,10)}.json`, 'application/json');
+  toast('Backup exported.', 'success');
+}
+
+function importJSON() { document.getElementById('import-file').click(); }
+async function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  try {
+    const data = JSON.parse(text);
+    if (data.calculations) await db.calculations.bulkPut(data.calculations);
+    if (data.inspections) await db.inspections.bulkPut(data.inspections);
+    if (data.settings) { for (const s of data.settings) await db.settings.put(s); }
+    toast('Backup restored successfully.', 'success');
+    loadHistory();
+    refreshDashboard();
+  } catch(err) {
+    toast('Import failed — invalid file.', 'error');
+  }
+  e.target.value = '';
+}
+
+function downloadFile(content, filename, type) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+async function refreshDashboard() {
+  const calcCount = await db.calculations.count();
+  const inspCount = await db.inspections.count();
+  document.getElementById('stat-calc').textContent = calcCount;
+  document.getElementById('stat-insp').textContent = inspCount;
+  // Count unique projects
+  const inspections = await db.inspections.toArray();
+  const projects = new Set(inspections.map(i => i.project).filter(Boolean));
+  document.getElementById('stat-proj').textContent = projects.size || '—';
+  // Recent activity
+  const recent = [];
+  const recentCalcs = await db.calculations.orderBy('date').reverse().limit(3).toArray();
+  const recentInsp = await db.inspections.orderBy('date').reverse().limit(3).toArray();
+  recent.push(...recentCalcs.map(r => ({ ...r, _type: 'calculation' })));
+  recent.push(...recentInsp.map(r => ({ ...r, _type: 'inspection' })));
+  recent.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const el = document.getElementById('recent-list');
+  if (!recent.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">No Recent Activity</div><div class="empty-sub">Start a calculation or inspection.</div></div>`;
+    return;
+  }
+  el.innerHTML = recent.slice(0, 5).map(r => {
+    const isInsp = r._type === 'inspection';
+    return `<div class="history-item" style="cursor:pointer">
+      <div class="hi-icon">${isInsp ? '📋' : '📐'}</div>
+      <div class="hi-body">
+        <div class="hi-title">${isInsp ? `${r.project||'Project'} — ${r.site||''}` : (r.title||r.calcLabel||'Calculation')}</div>
+        <div class="hi-meta"><span>${new Date(r.date).toLocaleDateString()}</span><span>${isInsp ? r.inspector||'' : r.project||''}</span></div>
+      </div>
+      <span class="badge badge-${isInsp ? 'success' : 'info'}">${isInsp ? 'Insp' : 'Calc'}</span>
+    </div>`;
+  }).join('');
+}
+
+/* ============================================================
+   SETTINGS ACTIONS
+   ============================================================ */
+function confirmClearAll() {
+  showConfirm('Clear All Data', 'This will permanently delete ALL saved calculations and inspections. This cannot be undone.', async () => {
+    await db.calculations.clear();
+    await db.inspections.clear();
+    toast('All data cleared.', 'info');
+    loadHistory();
+    refreshDashboard();
+    loadDraftInspections();
+  });
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+/* ============================================================
+   BILL OF QUANTITIES MODULE
+   ============================================================ */
+
+const BOQ_TEMPLATE = [
+  { id:'1', title:'Preliminary & General', items:[
+    { no:'1.01', desc:'Contract Related Cost', unit:'sum' },
+    { no:'1.02', desc:'Time Related Cost', unit:'months' },
+    { no:'1.03', desc:'Site Manager', unit:'months' },
+    { no:'1.04', desc:'Site Foreman', unit:'months' },
+    { no:'1.05', desc:'General Labour', unit:'months' },
+    { no:'1.06', desc:'Site Office Equipment', unit:'item' },
+    { no:'1.07', desc:'Site Office/Shed', unit:'months' },
+    { no:'1.08', desc:'Site Security/Watchman', unit:'months' },
+    { no:'1.09', desc:'Site Toilet', unit:'sum' },
+    { no:'1.10', desc:'Signboards', unit:'item' },
+    { no:'1.11', desc:'General Administration Cost', unit:'item' },
+    { no:'1.12', desc:'Water Connection', unit:'sum' },
+    { no:'1.13', desc:'Hire - Container', unit:'months' },
+    { no:'1.14', desc:'All Risk Policy', unit:'sum' },
+    { no:'1.15', desc:'Enclosure of works', unit:'item' },
+    { no:'1.16', desc:'Water (to be connected by client)', unit:'months' },
+    { no:'1.17', desc:'Electricity (to be connected by client)', unit:'months' },
+    { no:'1.18', desc:'Setting out of the works', unit:'sum' },
+    { no:'1.19', desc:'Inspection of the site', unit:'item' },
+    { no:'1.20', desc:'Scaffolding', unit:'sum' },
+    { no:'1.21', desc:'Overalls', unit:'no' },
+    { no:'1.22', desc:'Profiles Timber', unit:'sum' },
+    { no:'1.23', desc:'Building Permit', unit:'sum' },
+    { no:'1.24', desc:'Site Cleaning on Completion', unit:'sum' },
+    { no:'1.25', desc:'Cleaning Site During Construction', unit:'months' },
+    { no:'1.26', desc:'Contingency', unit:'sum' }
+  ]},
+  { id:'2', title:'Plant & Equipment', items:[
+    { no:'2.01', desc:'General Tools', unit:'item' },
+    { no:'2.02', desc:'Specific Tools', unit:'item' },
+    { no:'2.03', desc:'Concrete Vibrator (hire)', unit:'days' },
+    { no:'2.04', desc:'Compactor (hire)', unit:'days' },
+    { no:'2.05', desc:'Mixer', unit:'months' },
+    { no:'2.06', desc:'Petrol', unit:'Litre' }
+  ]},
+  { id:'3', title:'Earthworks & Excavations',
+    preamble:'The nature of the ground is assumed to be loose sandy material, therefore "earth", but possibly interspersed with "soft rock" or "hard rock".',
+    items:[
+      { no:'3.01', desc:'Excavate in earth for surface trench not exceeding 1.5 m deep', unit:'m²' },
+      { no:'3.02', desc:'Excavate in earth for column bases, etc not exceeding 1.5m deep', unit:'m²' },
+      { no:'3.03', desc:'Extra over in excavations in rock', unit:'m³' },
+      { no:'3.04', desc:'Excavate in earth exceeding 1.5m deep', unit:'m²' },
+      { no:'3.05', desc:'Boxing for foundation above soil', unit:'m' },
+      { no:'3.06', desc:'Backfill', unit:'m³' },
+      { no:'3.07', desc:'Soil Poisoning', unit:'m²' },
+      { no:'3.08', desc:'250micron DPC under surface beds', unit:'m²' }
+    ]},
+  { id:'4', title:'Concrete, Formwork & Reinforcement',
+    preamble:'All supervision during the concrete operation, materials and mixing of concrete, vibrating, construction joints and reinforcement together with formworks and supports must be approved by the Engineer.',
+    subgroups:[
+      { name:'Concrete Foundations (Strip-Footings)', items:[
+        { no:'4.01', desc:'Compaction test as specified by Engineer', unit:'sum' },
+        { no:'4.02', desc:'Site mixed concrete 25mPa Cement', unit:'m³' },
+        { no:'4.03', desc:'Site mixed concrete 30mPa Cement', unit:'m³' },
+        { no:'4.04', desc:'Ready mix concrete 25mPa Cement', unit:'m³' },
+        { no:'4.05', desc:'Ready mix concrete 30mPa Cement', unit:'m³' },
+        { no:'4.06', desc:'Ready mix pumping', unit:'m³' }
+      ]},
+      { name:'Concrete Surface Beds', items:[
+        { no:'4.07', desc:'Site mixed concrete 25mPa Cement', unit:'m³' },
+        { no:'4.08', desc:'Ready mix concrete 25mPa Cement', unit:'m³' },
+        { no:'4.09', desc:'Ready mix pumping', unit:'m³' },
+        { no:'4.10', desc:'Screeds 3mm to 5mm', unit:'m²' }
+      ]},
+      { name:'Concrete Slabs, Ramps, Beams & Stairs — Beams', items:[
+        { no:'4.11', desc:'Formwork', unit:'m' },
+        { no:'4.12', desc:'Reinforcement', unit:'kg' },
+        { no:'4.13', desc:'Site mixed Concrete 30mPa', unit:'m³' },
+        { no:'4.14', desc:'Ready mix Concrete 30mPa', unit:'m³' }
+      ]},
+      { name:'Columns', items:[
+        { no:'4.15', desc:'Formwork', unit:'m²' },
+        { no:'4.16', desc:'Reinforcement', unit:'kg' },
+        { no:'4.17', desc:'Site mixed Concrete 30mPa', unit:'m³' }
+      ]},
+      { name:'Slabs', items:[
+        { no:'4.18', desc:'Formwork & Supports', unit:'m²' },
+        { no:'4.19', desc:'Reinforcement', unit:'kg' },
+        { no:'4.20', desc:'Ready mix Concrete 30mPa', unit:'m³' },
+        { no:'4.21', desc:'Ready mix pumping', unit:'m³' }
+      ]},
+      { name:'Stairs', items:[
+        { no:'4.22', desc:'Formwork', unit:'no' },
+        { no:'4.23', desc:'Reinforcement', unit:'no' },
+        { no:'4.24', desc:'Site mixed Concrete 30mPa', unit:'no' }
+      ]}
+    ]},
+  { id:'5', title:'Masonry',
+    preamble:'Minimum compressive strength for bricks to foundations: 14mPa. Single storey buildings and multiple storey to slab height: 7mPa.',
+    subgroups:[
+      { name:'Substructure', items:[
+        { no:'5.01', desc:'220mm / 14mPa Standard Bricks', unit:'m²' },
+        { no:'5.02', desc:'220mm brickforce (Every Layer)', unit:'m' },
+        { no:'5.03', desc:'110mm / 14mPa Standard Bricks', unit:'m²' },
+        { no:'5.04', desc:'110mm brickforce (Every Layer)', unit:'m' },
+        { no:'5.05', desc:'Air Bricks', unit:'no' },
+        { no:'5.06', desc:'Natural stone cladding', unit:'m²' },
+        { no:'5.07', desc:'Waterproofing of foundations, weepholes incl.', unit:'m²' }
+      ]},
+      { name:'Superstructure', items:[
+        { no:'5.08', desc:'7mPa - Super Bricks 220mm', unit:'m²' },
+        { no:'5.09', desc:'220mm brickforce (Every 3rd Layer)', unit:'m' },
+        { no:'5.10', desc:'7mPa - Super Bricks 110mm', unit:'m²' },
+        { no:'5.11', desc:'110mm brickforce (Every 3rd Layer)', unit:'m' },
+        { no:'5.12', desc:'7mPa - 9" Block Bricks', unit:'m²' },
+        { no:'5.13', desc:'7mPa - 6" Block Bricks', unit:'m²' },
+        { no:'5.14', desc:'Plaster', unit:'m²' },
+        { no:'5.15', desc:'Hoop Iron (10%)', unit:'m' },
+        { no:'5.16', desc:'Lintols - External', unit:'no' },
+        { no:'5.17', desc:'Lintols - Internal', unit:'no' }
+      ]},
+      { name:'Alterations / Lifting', items:[
+        { no:'5.18', desc:'Breaking out of walls / windows / doors', unit:'m²' },
+        { no:'5.19', desc:'Lifting of existing tiles', unit:'m²' },
+        { no:'5.20', desc:'Lifting of laminating floor / carpets', unit:'m²' },
+        { no:'5.21', desc:'Brick Built Protection for Gas Bottles', unit:'sum' }
+      ]}
+    ]},
+  { id:'6', title:'Roof Structure',
+    subgroups:[
+      { name:'Trusses & Roof Covering', items:[
+        { no:'6.01', desc:'As per Specialist quotation (7.5% profit included)', unit:'sum' },
+        { no:'6.02', desc:'Roof tiles - concrete colour charcoal', unit:'m²' },
+        { no:'6.03', desc:'Ironmongery', unit:'m²' }
+      ]},
+      { name:'Ceiling', items:[
+        { no:'6.04', desc:'Rino Board', unit:'m²' },
+        { no:'6.05', desc:'Cornice', unit:'m' },
+        { no:'6.06', desc:'Brandering 38x50mm', unit:'m' },
+        { no:'6.07', desc:'Ironmongery', unit:'m²' },
+        { no:'6.08', desc:'Labour', unit:'m²' }
+      ]}
+    ]},
+  { id:'7', title:'Paintwork', items:[
+    { no:'7.01', desc:'Wall Paint 1 coat Universal Contractors Undercoat (Interior & Exterior)', unit:'m²' },
+    { no:'7.02', desc:'Wall Paint 2 coats Plascon Polvin (Interior & Exterior)', unit:'m²' },
+    { no:'7.03', desc:'Enamel primer', unit:'m²' },
+    { no:'7.04', desc:'Enamel 2 coats Plascon Eggshell', unit:'m²' },
+    { no:'7.05', desc:'Stain 2 coats (doors, etc.)', unit:'m²' },
+    { no:'7.06', desc:'Stain Extras', unit:'m²' },
+    { no:'7.07', desc:'Wall Paint Extras', unit:'m²' },
+    { no:'7.08', desc:'Paint Labour', unit:'m²' },
+    { no:'7.09', desc:'Roof painting Exterior', unit:'m²' },
+    { no:'7.10', desc:'Roof Paint labour', unit:'m²' },
+    { no:'7.11', desc:'Skimming - Ceiling Boards/Partitioning', unit:'m²' },
+    { no:'7.12', desc:'Skimming - Slabs', unit:'m²' },
+    { no:'7.13', desc:'Skimming Labour', unit:'m²' },
+    { no:'7.14', desc:'Ceiling Paint White 2 Coats (Plascon Ceilings & Walls)', unit:'m²' },
+    { no:'7.15', desc:'Ceiling Stain 2 Coats (trusses & flooring) - Xyladacor', unit:'m²' },
+    { no:'7.16', desc:'Ceiling Paint Labour', unit:'m²' },
+    { no:'7.17', desc:'Ceiling Paint Extras', unit:'m²' }
+  ]},
+  { id:'8', title:'Finishes',
+    preamble:'All exposed edges to have PVC strips, except thresholds to have Aluminium strips.',
+    items:[
+      { no:'8.01', desc:'Floor Tiles (Tiles not exceeding N$300/m²)', unit:'m²' },
+      { no:'8.02', desc:'Bathroom Wall Tiles (Tiles not exceeding N$250/m²)', unit:'m²' },
+      { no:'8.03', desc:'Kitchen Splash Back (Tiles not exceeding N$180/m²)', unit:'m²' },
+      { no:'8.04', desc:'Tile Skirting with PVC Strips', unit:'m' },
+      { no:'8.05', desc:'Laminated Wood Floor', unit:'m²' },
+      { no:'8.06', desc:'Wooden Pine Skirting', unit:'m' },
+      { no:'8.07', desc:'Carpets', unit:'m²' },
+      { no:'8.08', desc:'Carpet Skirting', unit:'m' },
+      { no:'8.09', desc:'Wall cladding Aesthetical', unit:'sum' }
+    ]},
+  { id:'9', title:'Plumbing', items:[
+    { no:'9.01', desc:'Gas connections by Sub-Contractor (7.5% profit included. Gas bottles excl.)', unit:'sum' },
+    { no:'9.02', desc:'Plumbing & Drainage Complete by Sub-Contractor (7.5% profit included)', unit:'sum' },
+    { no:'9.03', desc:'Casting of sewer/storm water pipes in concrete', unit:'m' },
+    { no:'9.04', desc:'Sanitary Fittings bathrooms - by Sub-Contractor (7.5% profit included)', unit:'sum' },
+    { no:'9.05', desc:'Sanitary Fittings kitchens - by Sub-Contractor (7.5% profit included)', unit:'sum' },
+    { no:'9.06', desc:'Accessories & Mirrors (Supplied & Fitted)', unit:'sum' },
+    { no:'9.07', desc:'Shower Doors (Supplied & Fitted)', unit:'sum' },
+    { no:'9.08', desc:'Stormwater grids', unit:'sum' },
+    { no:'9.09', desc:'PVC Gutters Complete', unit:'sum' },
+    { no:'9.10', desc:'PVC Down Pipes Complete', unit:'sum' }
+  ]},
+  { id:'10', title:'Carpentry & Joinery',
+    subgroups:[
+      { name:'Doors', items:[
+        { no:'10.01', desc:'Front Door - See Section 11', unit:'no' },
+        { no:'10.02', desc:'813x40mm Fire door with self-closing mechanism', unit:'no' },
+        { no:'10.03', desc:'813x40mm Internal hollowcore door', unit:'no' },
+        { no:'10.04', desc:'813x40mm External solid wood door', unit:'no' },
+        { no:'10.05', desc:'Custom made timber doors (complete)', unit:'no' },
+        { no:'10.06', desc:'Custom made Cellar doors (complete)', unit:'no' },
+        { no:'10.07', desc:'Hinges (3 per door) - Stainless Steel', unit:'no' },
+        { no:'10.08', desc:'Handle sets - Stainless Steel', unit:'no' },
+        { no:'10.09', desc:'Lock Cylinder sets', unit:'no' },
+        { no:'10.10', desc:'External Door frame - Meranti', unit:'no' },
+        { no:'10.11', desc:'Internal Door frame - Pine', unit:'no' },
+        { no:'10.12', desc:'Door installation', unit:'no' }
+      ]},
+      { name:'Timber Garage Doors', items:[
+        { no:'10.13', desc:'Garage door single 2.4x2.4m - Meranti, motor included', unit:'no' },
+        { no:'10.14', desc:'Garage door double 4.8x2.4m - Meranti, motor included', unit:'no' }
+      ]},
+      { name:'Kitchen and Cupboards', items:[
+        { no:'10.15', desc:'Kitchen', unit:'sum' },
+        { no:'10.16', desc:'Bedroom Cupboards', unit:'sum' },
+        { no:'10.17', desc:'Other (Study, laundry, garages, nooks, etc)', unit:'sum' }
+      ]},
+      { name:'Other Timber Works', items:[
+        { no:'10.18', desc:'Timber Staircase', unit:'no' },
+        { no:'10.19', desc:'Boxing for Geyser', unit:'sum' },
+        { no:'10.20', desc:'Timber Decks as per Specialist quotation', unit:'sum' },
+        { no:'10.21', desc:'Drywall Partitioning', unit:'m²' }
+      ]}
+    ]},
+  { id:'11', title:'Metal Works',
+    subgroups:[
+      { name:'Aluminium Windows & Doors (Glazing Included)', items:[
+        { no:'11.01', desc:'All aluminium works supplied & fitted by Sub-Contractor (7.5% profit included)', unit:'sum' },
+        { no:'11.02', desc:'Balustrade supplied & fitted by Sub-Contractor (7.5% profit included)', unit:'m' },
+        { no:'11.03', desc:'Gas Fire Places supplied & fitted (vent free)', unit:'sum' },
+        { no:'11.04', desc:'1000 Super Home-Fires build in braai', unit:'sum' },
+        { no:'11.05', desc:'Flute & Windcock', unit:'sum' },
+        { no:'11.06', desc:'Garage door single 2.4x2.4m - Aluzink/Fibre glass, motor included', unit:'no' },
+        { no:'11.07', desc:'Garage door double 4.8x2.4m - Aluzink/Fibre glass, motor included', unit:'no' },
+        { no:'11.08', desc:'Aluminium Gate 2450 x 1800', unit:'no' },
+        { no:'11.09', desc:'Aluminium Gate 900 x 2100', unit:'no' },
+        { no:'11.10', desc:'Gate Rails', unit:'no' },
+        { no:'11.11', desc:'Stainless steel columns (to be advised by engineer)', unit:'no' }
+      ]}
+    ]},
+  { id:'12', title:'Electrical', items:[
+    { no:'12.01', desc:'Electrical light & power installation complete by Sub-Contractor (7.5% profit included)', unit:'sum' },
+    { no:'12.02', desc:'Geysers supplied & fitted by electrical/plumbing Sub-Contractor', unit:'sum' },
+    { no:'12.03', desc:'Light Fittings supplied & fitted by electrical Sub-Contractor (7.5% profit included)', unit:'sum' },
+    { no:'12.04', desc:'Oven supplied & fitted by electrical Sub-Contractor (7.5% profit included)', unit:'sum' },
+    { no:'12.05', desc:'Alarm by Sub-Contractor (7.5% profit included)', unit:'sum' }
+  ]},
+  { id:'13', title:'External Works',
+    subgroups:[
+      { name:'Boundary Walls', items:[
+        { no:'13.01', desc:'Excavation', unit:'m³' },
+        { no:'13.02', desc:'Site mixed Concrete Foundation - 25mPa', unit:'m³' },
+        { no:'13.03', desc:'220mm 40mPa Rock Face Bricks and/or 14mPa Standard Bricks', unit:'m²' },
+        { no:'13.03a', desc:'Natural stone cladding', unit:'m²' },
+        { no:'13.04', desc:'220mm Brick Reinforcement', unit:'m' },
+        { no:'13.05', desc:'110mm 40mPa Rock Face Bricks and/or 14mPa Standard Bricks', unit:'m²' },
+        { no:'13.06', desc:'110mm Brick Reinforcement', unit:'m' },
+        { no:'13.07', desc:'7mPa - Super Bricks 110mm', unit:'m²' },
+        { no:'13.08', desc:'7mPa - Super Bricks 220mm', unit:'m²' },
+        { no:'13.09', desc:'7mPa - 9" Block Bricks', unit:'m²' },
+        { no:'13.10', desc:'7mPa - 6" Block Bricks', unit:'m²' },
+        { no:'13.11', desc:'Hoop Iron', unit:'m' },
+        { no:'13.12', desc:'DPC', unit:'m' },
+        { no:'13.13', desc:'Plaster', unit:'m²' },
+        { no:'13.14', desc:'Paint 1 coat Universal Contractors Undercoat (both sides)', unit:'m²' },
+        { no:'13.15', desc:'Paint 2 coats (both sides)', unit:'m²' },
+        { no:'13.16', desc:'Paint Extras', unit:'m²' },
+        { no:'13.17', desc:'Paint Labour', unit:'m²' },
+        { no:'13.18', desc:'Bitumen', unit:'m²' },
+        { no:'13.19', desc:'Paving', unit:'m²' },
+        { no:'13.20', desc:'Outside braai', unit:'sum' },
+        { no:'13.21', desc:'Timber Gates, installation included', unit:'sum' },
+        { no:'13.22', desc:'Landscaping', unit:'sum' }
+      ]}
+    ]}
+];
+
+/* BOQ State */
+let boqData = {}; // { 'itemNo': { qty: '', rate: '' }, ... }
+let boqInitialized = false;
+
+function boqGetAllItems() {
+  const items = [];
+  BOQ_TEMPLATE.forEach(sec => {
+    if (sec.items) sec.items.forEach(it => items.push({ ...it, secId: sec.id }));
+    if (sec.subgroups) sec.subgroups.forEach(sg => sg.items.forEach(it => items.push({ ...it, secId: sec.id })));
+  });
+  return items;
+}
+
+function boqGetAmount(no) {
+  const d = boqData[no] || {};
+  const q = parseFloat(d.qty) || 0;
+  const r = parseFloat(d.rate) || 0;
+  return q * r;
+}
+
+function boqSectionTotal(sec) {
+  let total = 0;
+  const items = [];
+  if (sec.items) sec.items.forEach(i => items.push(i));
+  if (sec.subgroups) sec.subgroups.forEach(sg => sg.items.forEach(i => items.push(i)));
+  items.forEach(i => { total += boqGetAmount(i.no); });
+  return total;
+}
+
+function fmtMoney(v) {
+  const cur = document.getElementById('boq-currency')?.value || 'N$';
+  return `${cur} ${v.toLocaleString('en-ZA', { minimumFractionDigits:2, maximumFractionDigits:2 })}`;
+}
+
+function boqRenderSections() {
+  const container = document.getElementById('boq-sections');
+  container.innerHTML = BOQ_TEMPLATE.map(sec => {
+    const total = boqSectionTotal(sec);
+    const bodyRows = buildSectionBody(sec);
+    return `
+    <div class="boq-section open" id="boq-sec-${sec.id}">
+      <div class="boq-section-head" onclick="boqToggleSection('${sec.id}')">
+        <span class="bsh-num">${sec.id}</span>
+        <span class="bsh-title">${sec.title}</span>
+        <span class="bsh-total" id="boq-sec-total-${sec.id}">${fmtMoney(total)}</span>
+        <span class="bsh-chevron">▼</span>
+      </div>
+      <div class="boq-section-body">
+        ${sec.preamble ? `<div class="boq-note">${sec.preamble}</div>` : ''}
+        <table class="boq-table">
+          <thead><tr>
+            <th style="width:52px">No.</th>
+            <th>Description</th>
+            <th style="width:52px">Unit</th>
+            <th class="right" style="width:90px">Qty</th>
+            <th class="right" style="width:100px">Rate</th>
+            <th class="right" style="width:110px">Amount</th>
+          </tr></thead>
+          <tbody>${bodyRows}</tbody>
+        </table>
+        <table class="boq-table">
+          <tbody>
+            <tr class="boq-subtotal">
+              <td class="st-label" colspan="5">Total — ${sec.title}</td>
+              <td class="st-val" id="boq-sub-${sec.id}">${fmtMoney(total)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+  }).join('');
+
+  boqUpdateSummary();
+}
+
+function buildSectionBody(sec) {
+  let html = '';
+  const renderItem = (it) => {
+    const d = boqData[it.no] || {};
+    const amount = boqGetAmount(it.no);
+    return `<tr>
+      <td class="boq-td-num">${it.no}</td>
+      <td class="boq-td-desc">${it.desc}</td>
+      <td class="boq-td-unit">${it.unit}</td>
+      <td><input class="boq-input" type="number" step="any" inputmode="decimal"
+        placeholder="0" value="${d.qty||''}"
+        onchange="boqSetVal('${it.no}','qty',this.value)"
+        oninput="boqSetVal('${it.no}','qty',this.value)"></td>
+      <td><input class="boq-input" type="number" step="any" inputmode="decimal"
+        placeholder="0.00" value="${d.rate||''}"
+        onchange="boqSetVal('${it.no}','rate',this.value)"
+        oninput="boqSetVal('${it.no}','rate',this.value)"></td>
+      <td class="boq-amount${amount>0?' nonzero':''}" id="boq-amt-${it.no.replace(/\./g,'-').replace(/[^a-zA-Z0-9-]/g,'_')}">${amount>0?fmtMoney(amount):'—'}</td>
+    </tr>`;
+  };
+
+  if (sec.items) {
+    html += sec.items.map(renderItem).join('');
+  }
+  if (sec.subgroups) {
+    sec.subgroups.forEach(sg => {
+      html += `<tr><td colspan="6" class="boq-subhead">${sg.name}</td></tr>`;
+      html += sg.items.map(renderItem).join('');
+    });
+  }
+  return html;
+}
+
+function boqSetVal(no, field, val) {
+  if (!boqData[no]) boqData[no] = {};
+  boqData[no][field] = val;
+  // Update this row's amount cell
+  const amount = boqGetAmount(no);
+  const safeId = 'boq-amt-' + no.replace(/\./g,'-').replace(/[^a-zA-Z0-9-]/g,'_');
+  const amtEl = document.getElementById(safeId);
+  if (amtEl) {
+    amtEl.textContent = amount > 0 ? fmtMoney(amount) : '—';
+    amtEl.className = 'boq-amount' + (amount > 0 ? ' nonzero' : '');
+  }
+  // Find which section this item belongs to and update its total
+  BOQ_TEMPLATE.forEach(sec => {
+    const allItems = [];
+    if (sec.items) sec.items.forEach(i => allItems.push(i));
+    if (sec.subgroups) sec.subgroups.forEach(sg => sg.items.forEach(i => allItems.push(i)));
+    if (allItems.find(i => i.no === no)) {
+      const t = boqSectionTotal(sec);
+      const fmt = fmtMoney(t);
+      const th = document.getElementById('boq-sec-total-' + sec.id);
+      const tb = document.getElementById('boq-sub-' + sec.id);
+      if (th) th.textContent = fmt;
+      if (tb) tb.textContent = fmt;
+    }
+  });
+  boqUpdateSummary();
+}
+
+function boqUpdateSummary() {
+  const table = document.getElementById('boq-summary-table');
+  let grand = 0;
+  const cur = document.getElementById('boq-currency')?.value || 'N$';
+  let html = BOQ_TEMPLATE.map(sec => {
+    const t = boqSectionTotal(sec);
+    grand += t;
+    return `<tr>
+      <td><strong>${sec.id}.</strong> ${sec.title}</td>
+      <td>${t > 0 ? fmtMoney(t) : '<span style="color:var(--text-dim)">—</span>'}</td>
+    </tr>`;
+  }).join('');
+  if (table) table.innerHTML = html;
+  const grandEl = document.getElementById('boq-grand-total');
+  if (grandEl) grandEl.textContent = fmtMoney(grand);
+}
+
+function boqToggleSection(id) {
+  document.getElementById('boq-sec-' + id)?.classList.toggle('open');
+}
+
+function boqRefresh() {
+  // Re-render amounts with new currency
+  boqGetAllItems().forEach(it => {
+    const amount = boqGetAmount(it.no);
+    const safeId = 'boq-amt-' + it.no.replace(/\./g,'-').replace(/[^a-zA-Z0-9-]/g,'_');
+    const el = document.getElementById(safeId);
+    if (el) { el.textContent = amount > 0 ? fmtMoney(amount) : '—'; el.className = 'boq-amount' + (amount > 0 ? ' nonzero' : ''); }
+  });
+  BOQ_TEMPLATE.forEach(sec => {
+    const t = boqSectionTotal(sec);
+    const fmt = fmtMoney(t);
+    const th = document.getElementById('boq-sec-total-' + sec.id);
+    const tb = document.getElementById('boq-sub-' + sec.id);
+    if (th) th.textContent = fmt;
+    if (tb) tb.textContent = fmt;
+  });
+  boqUpdateSummary();
+}
+
+async function boqSave() {
+  const rec = {
+    type: 'boq',
+    project: document.getElementById('boq-project')?.value || '',
+    owner: document.getElementById('boq-owner')?.value || '',
+    contractor: document.getElementById('boq-contractor')?.value || '',
+    preparer: document.getElementById('boq-preparer')?.value || '',
+    date: document.getElementById('boq-date')?.value || '',
+    currency: document.getElementById('boq-currency')?.value || 'N$',
+    data: JSON.parse(JSON.stringify(boqData)),
+    savedDate: new Date().toISOString(),
+    title: document.getElementById('boq-project')?.value || 'BOQ',
+    calcLabel: 'Bill of Quantities',
+    result: { vol: 0, unit: '' }
+  };
+  await db.calculations.add(rec);
+  toast('BOQ saved to history.', 'success');
+  await refreshDashboard();
+}
+
+function boqReset() {
+  showConfirm('Reset BOQ', 'Clear all quantities and rates?', () => {
+    boqData = {};
+    boqRenderSections();
+    toast('BOQ cleared.', 'info');
+  });
+}
+
+function boqExportPDF() {
+  // Expand all sections before printing
+  document.querySelectorAll('.boq-section').forEach(s => s.classList.add('open'));
+  setTimeout(() => window.print(), 150);
+}
+
+/* ── EXCEL EXPORT via SheetJS ── */
+function boqExportExcel() {
+  if (typeof XLSX === 'undefined') {
+    toast('Loading Excel library...', 'info');
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => _doBoqExcelExport();
+    document.head.appendChild(s);
+  } else {
+    _doBoqExcelExport();
+  }
+}
+
+function _doBoqExcelExport() {
+  const cur = document.getElementById('boq-currency')?.value || 'N$';
+  const project = document.getElementById('boq-project')?.value || 'BOQ';
+  const owner = document.getElementById('boq-owner')?.value || '';
+  const contractor = document.getElementById('boq-contractor')?.value || '';
+  const preparer = document.getElementById('boq-preparer')?.value || '';
+  const date = document.getElementById('boq-date')?.value || '';
+
+  const wb = XLSX.utils.book_new();
+  const wsData = [];
+
+  // Header block
+  wsData.push(['BILL OF QUANTITIES']);
+  wsData.push([`Project: ${project}`]);
+  wsData.push([`Owner: ${owner}`]);
+  wsData.push([`Contractor: ${contractor}`]);
+  wsData.push([`Prepared By: ${preparer}`]);
+  wsData.push([`Date: ${date}`]);
+  wsData.push([]);
+
+  BOQ_TEMPLATE.forEach(sec => {
+    // Section header
+    wsData.push([`${sec.id} - ${sec.title.toUpperCase()}`, '', 'UNIT', 'QTY', 'RATE', `AMOUNT (${cur})`]);
+    if (sec.preamble) wsData.push(['', sec.preamble]);
+
+    const renderItemRow = (it) => {
+      const d = boqData[it.no] || {};
+      const qty = parseFloat(d.qty) || 0;
+      const rate = parseFloat(d.rate) || 0;
+      const amount = qty * rate;
+      wsData.push([it.no, it.desc, it.unit, qty || '', rate || '', amount || '']);
+    };
+
+    if (sec.items) sec.items.forEach(renderItemRow);
+    if (sec.subgroups) {
+      sec.subgroups.forEach(sg => {
+        wsData.push(['', `● ${sg.name}`]);
+        sg.items.forEach(renderItemRow);
+      });
+    }
+
+    // Section total
+    const t = boqSectionTotal(sec);
+    wsData.push(['', `Total Amount — ${sec.title}`, '', '', '', t]);
+    wsData.push([]);
+  });
+
+  // Grand total
+  wsData.push([]);
+  let grand = 0;
+  BOQ_TEMPLATE.forEach(sec => { grand += boqSectionTotal(sec); });
+  wsData.push(['', 'GRAND TOTAL', '', '', '', grand]);
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    { wch: 8 }, { wch: 58 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 16 }
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'BOQ');
+
+  // Summary sheet
+  const sumData = [['SECTION SUMMARY']];
+  sumData.push(['No.', 'Section', `Amount (${cur})`]);
+  BOQ_TEMPLATE.forEach(sec => {
+    sumData.push([sec.id, sec.title, boqSectionTotal(sec)]);
+  });
+  sumData.push([]);
+  sumData.push(['', 'GRAND TOTAL', grand]);
+  const wsSummary = XLSX.utils.aoa_to_sheet(sumData);
+  wsSummary['!cols'] = [{ wch:6 }, { wch:40 }, { wch:18 }];
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+  XLSX.writeFile(wb, `BOQ_${project.replace(/[^a-zA-Z0-9]/g,'_')}_${date||'draft'}.xlsx`);
+  toast('Excel file exported.', 'success');
+}
+
+/* Load saved BOQ */
+async function boqLoadSaved(id) {
+  const rec = await db.calculations.get(id);
+  if (!rec || rec.type !== 'boq') return;
+  boqData = rec.data || {};
+  if (rec.project) document.getElementById('boq-project').value = rec.project;
+  if (rec.owner) document.getElementById('boq-owner').value = rec.owner;
+  if (rec.contractor) document.getElementById('boq-contractor').value = rec.contractor;
+  if (rec.preparer) document.getElementById('boq-preparer').value = rec.preparer;
+  if (rec.date) document.getElementById('boq-date').value = rec.date;
+  if (rec.currency) document.getElementById('boq-currency').value = rec.currency;
+  boqRenderSections();
+  showTab('boq');
+  toast('BOQ loaded.', 'success');
+}
+
+/* Initialize BOQ tab when first visited */
+
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

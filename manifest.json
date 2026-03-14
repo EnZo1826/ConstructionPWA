@@ -1,0 +1,19 @@
+{
+  "name": "FieldPro Construction",
+  "short_name": "FieldPro",
+  "description": "Professional construction field tool for site supervisors, estimators, and inspectors",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0F1923",
+  "theme_color": "#F59E0B",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' fill='%230F1923'/><text y='.9em' font-size='160' x='16'>🏗️</text></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "lang": "en"
+}
