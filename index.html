@@ -864,7 +864,31 @@ body {
 .boq-summary-table td:last-child { text-align: right; font-family: var(--ff-mono); font-weight: 600; color: var(--accent); }
 .boq-summary-table tr:last-child td { border-bottom: none; }
 
-/* Print stylesheet */
+/* BOQ add/remove controls */
+.boq-del-btn {
+  width: 22px; height: 22px;
+  background: none; border: 1.5px solid transparent; border-radius: 50%;
+  color: var(--text-dim); font-size: 15px; line-height: 1;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+  transition: all .12s; padding: 0;
+}
+.boq-del-btn:hover { background: rgba(239,68,68,.15); border-color: var(--danger); color: var(--danger); }
+.boq-add-row-btn {
+  width: 100%; padding: 5px 10px; text-align: left;
+  background: none; border: 1.5px dashed var(--border);
+  border-radius: 6px; color: var(--text-muted);
+  font-family: var(--ff-head); font-size: 12px; font-weight: 700;
+  letter-spacing: .3px; cursor: pointer; transition: all .15s;
+}
+.boq-add-row-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.boq-custom-input {
+  width: 100%; background: transparent; border: none; outline: none;
+  color: var(--text); font-family: var(--ff-body); font-size: 13px; padding: 8px 6px;
+}
+.boq-custom-input:focus { background: var(--accent-dim); }
+.boq-custom-input.small { font-size: 11px; color: var(--text-muted); text-align: center; }
+
+
 @media print {
   #header, #bottom-nav, #sidebar, #desktop-toggle,
   .boq-actions, .boq-section-head .bsh-chevron,
@@ -2974,31 +2998,31 @@ const BOQ_TEMPLATE = [
 ];
 
 /* BOQ State */
-let boqData = {}; // { 'itemNo': { qty: '', rate: '' }, ... }
+let boqData = {};           // { key: { qty, rate } }  key = it.no (template) or uid (custom)
+let boqCustom = {};         // { secId: [{ uid, no, desc, unit, sgName|null }] }
+let boqRemoved = new Set(); // 'secId|it.no' strings of removed template items
+let _boqUid = 0;
 let boqInitialized = false;
 
-function boqGetAllItems() {
-  const items = [];
-  BOQ_TEMPLATE.forEach(sec => {
-    if (sec.items) sec.items.forEach(it => items.push({ ...it, secId: sec.id }));
-    if (sec.subgroups) sec.subgroups.forEach(sg => sg.items.forEach(it => items.push({ ...it, secId: sec.id })));
-  });
-  return items;
-}
+function _newBoqUid() { return 'c' + (++_boqUid); }
 
-function boqGetAmount(no) {
-  const d = boqData[no] || {};
-  const q = parseFloat(d.qty) || 0;
-  const r = parseFloat(d.rate) || 0;
-  return q * r;
+function boqSafeKey(k) { return k.replace(/[^a-zA-Z0-9]/g, '_'); }
+
+function boqGetAmount(key) {
+  const d = boqData[key] || {};
+  return (parseFloat(d.qty) || 0) * (parseFloat(d.rate) || 0);
 }
 
 function boqSectionTotal(sec) {
   let total = 0;
-  const items = [];
-  if (sec.items) sec.items.forEach(i => items.push(i));
-  if (sec.subgroups) sec.subgroups.forEach(sg => sg.items.forEach(i => items.push(i)));
-  items.forEach(i => { total += boqGetAmount(i.no); });
+  // Template items (skip removed)
+  const visit = (it) => {
+    if (!boqRemoved.has(sec.id + '|' + it.no)) total += boqGetAmount(it.no);
+  };
+  if (sec.items) sec.items.forEach(visit);
+  if (sec.subgroups) sec.subgroups.forEach(sg => sg.items.forEach(visit));
+  // Custom items
+  (boqCustom[sec.id] || []).forEach(ci => { total += boqGetAmount(ci.uid); });
   return total;
 }
 
@@ -3007,8 +3031,21 @@ function fmtMoney(v) {
   return `${cur} ${v.toLocaleString('en-ZA', { minimumFractionDigits:2, maximumFractionDigits:2 })}`;
 }
 
+function boqUpdateSecTotals(secId) {
+  const sec = BOQ_TEMPLATE.find(s => s.id === secId);
+  if (!sec) return;
+  const t = boqSectionTotal(sec);
+  const f = fmtMoney(t);
+  const th = document.getElementById('boq-sec-total-' + secId);
+  const tb = document.getElementById('boq-sub-' + secId);
+  if (th) th.textContent = f;
+  if (tb) tb.textContent = f;
+  boqUpdateSummary();
+}
+
 function boqRenderSections() {
   const container = document.getElementById('boq-sections');
+  if (!container) return;
   container.innerHTML = BOQ_TEMPLATE.map(sec => {
     const total = boqSectionTotal(sec);
     const bodyRows = buildSectionBody(sec);
@@ -3030,13 +3067,14 @@ function boqRenderSections() {
             <th class="right" style="width:90px">Qty</th>
             <th class="right" style="width:100px">Rate</th>
             <th class="right" style="width:110px">Amount</th>
+            <th style="width:32px" class="no-print"></th>
           </tr></thead>
-          <tbody>${bodyRows}</tbody>
+          <tbody id="boq-tbody-${sec.id}">${bodyRows}</tbody>
         </table>
         <table class="boq-table">
           <tbody>
             <tr class="boq-subtotal">
-              <td class="st-label" colspan="5">Total — ${sec.title}</td>
+              <td class="st-label" colspan="6">Total — ${sec.title}</td>
               <td class="st-val" id="boq-sub-${sec.id}">${fmtMoney(total)}</td>
             </tr>
           </tbody>
@@ -3044,75 +3082,233 @@ function boqRenderSections() {
       </div>
     </div>`;
   }).join('');
-
   boqUpdateSummary();
 }
 
 function buildSectionBody(sec) {
   let html = '';
-  const renderItem = (it) => {
+
+  // Render a template item row
+  const renderTpl = (it) => {
+    const rk = sec.id + '|' + it.no;            // removed key
+    if (boqRemoved.has(rk)) return '';           // skip removed
     const d = boqData[it.no] || {};
     const amount = boqGetAmount(it.no);
-    return `<tr>
+    const sk = boqSafeKey(it.no);               // safe DOM id fragment
+    const srk = boqSafeKey(rk);
+    return `<tr id="boq-row-${srk}">
       <td class="boq-td-num">${it.no}</td>
       <td class="boq-td-desc">${it.desc}</td>
       <td class="boq-td-unit">${it.unit}</td>
       <td><input class="boq-input" type="number" step="any" inputmode="decimal"
-        placeholder="0" value="${d.qty||''}"
-        onchange="boqSetVal('${it.no}','qty',this.value)"
-        oninput="boqSetVal('${it.no}','qty',this.value)"></td>
+        placeholder="0" value="${d.qty || ''}"
+        data-key="${it.no}" data-field="qty" data-secid="${sec.id}"
+        oninput="boqSetVal(this)"></td>
       <td><input class="boq-input" type="number" step="any" inputmode="decimal"
-        placeholder="0.00" value="${d.rate||''}"
-        onchange="boqSetVal('${it.no}','rate',this.value)"
-        oninput="boqSetVal('${it.no}','rate',this.value)"></td>
-      <td class="boq-amount${amount>0?' nonzero':''}" id="boq-amt-${it.no.replace(/\./g,'-').replace(/[^a-zA-Z0-9-]/g,'_')}">${amount>0?fmtMoney(amount):'—'}</td>
+        placeholder="0.00" value="${d.rate || ''}"
+        data-key="${it.no}" data-field="rate" data-secid="${sec.id}"
+        oninput="boqSetVal(this)"></td>
+      <td class="boq-amount${amount > 0 ? ' nonzero' : ''}" id="boq-amt-${sk}">${amount > 0 ? fmtMoney(amount) : '—'}</td>
+      <td class="no-print" style="text-align:center;padding:0 4px">
+        <button class="boq-del-btn"
+          data-rk="${rk}" data-rowid="boq-row-${srk}" data-secid="${sec.id}"
+          onclick="boqRemoveRow(this)" title="Remove item">×</button>
+      </td>
     </tr>`;
   };
 
+  // Render a custom item row (editable No / Desc / Unit)
+  const renderCustom = (ci) => {
+    const d = boqData[ci.uid] || {};
+    const amount = boqGetAmount(ci.uid);
+    const sk = boqSafeKey(ci.uid);
+    const safeNo   = (ci.no   || '').replace(/"/g, '&quot;');
+    const safeDesc = (ci.desc || '').replace(/"/g, '&quot;');
+    const safeUnit = (ci.unit || '').replace(/"/g, '&quot;');
+    return `<tr id="boq-row-${sk}">
+      <td class="boq-td-num" style="padding:0">
+        <input class="boq-custom-input small" type="text"
+          value="${safeNo}" placeholder="—"
+          data-uid="${ci.uid}" data-field="no"
+          onchange="boqSetCustomField(this)">
+      </td>
+      <td class="boq-td-desc" style="padding:0">
+        <input class="boq-custom-input" type="text"
+          value="${safeDesc}" placeholder="Description"
+          data-uid="${ci.uid}" data-field="desc"
+          onchange="boqSetCustomField(this)">
+      </td>
+      <td class="boq-td-unit" style="padding:0">
+        <input class="boq-custom-input small" type="text"
+          value="${safeUnit}" placeholder="unit"
+          data-uid="${ci.uid}" data-field="unit"
+          onchange="boqSetCustomField(this)">
+      </td>
+      <td><input class="boq-input" type="number" step="any" inputmode="decimal"
+        placeholder="0" value="${d.qty || ''}"
+        data-key="${ci.uid}" data-field="qty" data-secid="${sec.id}"
+        oninput="boqSetVal(this)"></td>
+      <td><input class="boq-input" type="number" step="any" inputmode="decimal"
+        placeholder="0.00" value="${d.rate || ''}"
+        data-key="${ci.uid}" data-field="rate" data-secid="${sec.id}"
+        oninput="boqSetVal(this)"></td>
+      <td class="boq-amount${amount > 0 ? ' nonzero' : ''}" id="boq-amt-${sk}">${amount > 0 ? fmtMoney(amount) : '—'}</td>
+      <td class="no-print" style="text-align:center;padding:0 4px">
+        <button class="boq-del-btn"
+          data-uid="${ci.uid}" data-secid="${sec.id}"
+          onclick="boqRemoveCustom(this)" title="Remove item">×</button>
+      </td>
+    </tr>`;
+  };
+
+  // Add-item button row — data-sgname carries the subgroup name (HTML-encoded)
+  const addBtn = (sgName) => {
+    const safeSg = (sgName || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<tr class="no-print"><td colspan="7" style="padding:3px 8px">
+      <button class="boq-add-row-btn"
+        data-secid="${sec.id}" data-sgname="${safeSg}"
+        onclick="boqAddRow(this)">+ Add Item</button>
+    </td></tr>`;
+  };
+
   if (sec.items) {
-    html += sec.items.map(renderItem).join('');
+    html += sec.items.map(renderTpl).join('');
+    (boqCustom[sec.id] || []).filter(ci => !ci.sgName).forEach(ci => { html += renderCustom(ci); });
+    html += addBtn(null);
   }
   if (sec.subgroups) {
     sec.subgroups.forEach(sg => {
-      html += `<tr><td colspan="6" class="boq-subhead">${sg.name}</td></tr>`;
-      html += sg.items.map(renderItem).join('');
+      html += `<tr><td colspan="7" class="boq-subhead">${sg.name}</td></tr>`;
+      html += sg.items.map(renderTpl).join('');
+      (boqCustom[sec.id] || []).filter(ci => ci.sgName === sg.name).forEach(ci => { html += renderCustom(ci); });
+      html += addBtn(sg.name);
     });
   }
   return html;
 }
 
-function boqSetVal(no, field, val) {
-  if (!boqData[no]) boqData[no] = {};
-  boqData[no][field] = val;
-  // Update this row's amount cell
-  const amount = boqGetAmount(no);
-  const safeId = 'boq-amt-' + no.replace(/\./g,'-').replace(/[^a-zA-Z0-9-]/g,'_');
-  const amtEl = document.getElementById(safeId);
+/* ── INPUT HANDLERS ── */
+
+// Called from both template and custom item qty/rate inputs
+function boqSetVal(inp) {
+  const key = inp.dataset.key;
+  const field = inp.dataset.field;
+  const secId = inp.dataset.secid;
+  if (!boqData[key]) boqData[key] = {};
+  boqData[key][field] = inp.value;
+  const amount = boqGetAmount(key);
+  const amtEl = document.getElementById('boq-amt-' + boqSafeKey(key));
   if (amtEl) {
     amtEl.textContent = amount > 0 ? fmtMoney(amount) : '—';
     amtEl.className = 'boq-amount' + (amount > 0 ? ' nonzero' : '');
   }
-  // Find which section this item belongs to and update its total
-  BOQ_TEMPLATE.forEach(sec => {
-    const allItems = [];
-    if (sec.items) sec.items.forEach(i => allItems.push(i));
-    if (sec.subgroups) sec.subgroups.forEach(sg => sg.items.forEach(i => allItems.push(i)));
-    if (allItems.find(i => i.no === no)) {
-      const t = boqSectionTotal(sec);
-      const fmt = fmtMoney(t);
-      const th = document.getElementById('boq-sec-total-' + sec.id);
-      const tb = document.getElementById('boq-sub-' + sec.id);
-      if (th) th.textContent = fmt;
-      if (tb) tb.textContent = fmt;
-    }
-  });
-  boqUpdateSummary();
+  boqUpdateSecTotals(secId);
 }
+
+// Called from custom item No / Desc / Unit inputs
+function boqSetCustomField(inp) {
+  const uid = inp.dataset.uid;
+  const field = inp.dataset.field;
+  // Find the custom item and update it
+  for (const secId in boqCustom) {
+    const ci = boqCustom[secId].find(c => c.uid === uid);
+    if (ci) { ci[field] = inp.value; break; }
+  }
+}
+
+/* ── REMOVE ── */
+
+function boqRemoveRow(btn) {
+  // Remove a template item
+  const rk = btn.dataset.rk;
+  const rowId = btn.dataset.rowid;
+  const secId = btn.dataset.secid;
+  boqRemoved.add(rk);
+  document.getElementById(rowId)?.remove();
+  boqUpdateSecTotals(secId);
+}
+
+function boqRemoveCustom(btn) {
+  // Remove a custom item
+  const uid = btn.dataset.uid;
+  const secId = btn.dataset.secid;
+  if (boqCustom[secId]) boqCustom[secId] = boqCustom[secId].filter(ci => ci.uid !== uid);
+  delete boqData[uid];
+  document.getElementById('boq-row-' + boqSafeKey(uid))?.remove();
+  boqUpdateSecTotals(secId);
+}
+
+/* ── ADD ── */
+
+function boqAddRow(btn) {
+  const secId = btn.dataset.secid;
+  const sgName = btn.dataset.sgname || null;   // browser HTML-decodes automatically
+  const uid = _newBoqUid();
+  if (!boqCustom[secId]) boqCustom[secId] = [];
+  const ci = { uid, no: '', desc: '', unit: 'm²', sgName: sgName || null };
+  boqCustom[secId].push(ci);
+
+  // Insert the new row before the add-button row
+  const addBtnRow = btn.closest('tr');
+  const tbody = addBtnRow.parentElement;
+  const temp = document.createElement('tbody');
+  temp.innerHTML = buildCustomRow(ci, secId);
+  tbody.insertBefore(temp.firstChild, addBtnRow);
+
+  // Focus the description field of the new row
+  const newRow = document.getElementById('boq-row-' + boqSafeKey(uid));
+  if (newRow) newRow.querySelectorAll('input')[1]?.focus();
+}
+
+// Render a single custom row without rebuilding everything
+function buildCustomRow(ci, secId) {
+  const d = boqData[ci.uid] || {};
+  const amount = boqGetAmount(ci.uid);
+  const sk = boqSafeKey(ci.uid);
+  const safeNo   = (ci.no   || '').replace(/"/g, '&quot;');
+  const safeDesc = (ci.desc || '').replace(/"/g, '&quot;');
+  const safeUnit = (ci.unit || '').replace(/"/g, '&quot;');
+  return `<tr id="boq-row-${sk}">
+    <td class="boq-td-num" style="padding:0">
+      <input class="boq-custom-input small" type="text"
+        value="${safeNo}" placeholder="—"
+        data-uid="${ci.uid}" data-field="no"
+        onchange="boqSetCustomField(this)">
+    </td>
+    <td class="boq-td-desc" style="padding:0">
+      <input class="boq-custom-input" type="text"
+        value="${safeDesc}" placeholder="Description"
+        data-uid="${ci.uid}" data-field="desc"
+        onchange="boqSetCustomField(this)">
+    </td>
+    <td class="boq-td-unit" style="padding:0">
+      <input class="boq-custom-input small" type="text"
+        value="${safeUnit}" placeholder="unit"
+        data-uid="${ci.uid}" data-field="unit"
+        onchange="boqSetCustomField(this)">
+    </td>
+    <td><input class="boq-input" type="number" step="any" inputmode="decimal"
+      placeholder="0" value="${d.qty || ''}"
+      data-key="${ci.uid}" data-field="qty" data-secid="${secId}"
+      oninput="boqSetVal(this)"></td>
+    <td><input class="boq-input" type="number" step="any" inputmode="decimal"
+      placeholder="0.00" value="${d.rate || ''}"
+      data-key="${ci.uid}" data-field="rate" data-secid="${secId}"
+      oninput="boqSetVal(this)"></td>
+    <td class="boq-amount${amount > 0 ? ' nonzero' : ''}" id="boq-amt-${sk}">${amount > 0 ? fmtMoney(amount) : '—'}</td>
+    <td class="no-print" style="text-align:center;padding:0 4px">
+      <button class="boq-del-btn"
+        data-uid="${ci.uid}" data-secid="${secId}"
+        onclick="boqRemoveCustom(this)" title="Remove item">×</button>
+    </td>
+  </tr>`;
+}
+
+/* ── SUMMARY ── */
 
 function boqUpdateSummary() {
   const table = document.getElementById('boq-summary-table');
   let grand = 0;
-  const cur = document.getElementById('boq-currency')?.value || 'N$';
   let html = BOQ_TEMPLATE.map(sec => {
     const t = boqSectionTotal(sec);
     grand += t;
@@ -3131,25 +3327,37 @@ function boqToggleSection(id) {
 }
 
 function boqRefresh() {
-  // Re-render amounts with new currency
-  boqGetAllItems().forEach(it => {
-    const amount = boqGetAmount(it.no);
-    const safeId = 'boq-amt-' + it.no.replace(/\./g,'-').replace(/[^a-zA-Z0-9-]/g,'_');
-    const el = document.getElementById(safeId);
-    if (el) { el.textContent = amount > 0 ? fmtMoney(amount) : '—'; el.className = 'boq-amount' + (amount > 0 ? ' nonzero' : ''); }
+  // Currency changed — patch all amount cells + totals
+  document.querySelectorAll('[id^="boq-amt-"]').forEach(el => {
+    const sk = el.id.replace('boq-amt-', '');
+    // Find the original key — try template items first, then custom
+    const allKeys = [
+      ...boqGetAllItems().map(it => it.no),
+      ...Object.values(boqCustom).flat().map(ci => ci.uid)
+    ];
+    const key = allKeys.find(k => boqSafeKey(k) === sk);
+    if (key) {
+      const amt = boqGetAmount(key);
+      el.textContent = amt > 0 ? fmtMoney(amt) : '—';
+      el.className = 'boq-amount' + (amt > 0 ? ' nonzero' : '');
+    }
   });
-  BOQ_TEMPLATE.forEach(sec => {
-    const t = boqSectionTotal(sec);
-    const fmt = fmtMoney(t);
-    const th = document.getElementById('boq-sec-total-' + sec.id);
-    const tb = document.getElementById('boq-sub-' + sec.id);
-    if (th) th.textContent = fmt;
-    if (tb) tb.textContent = fmt;
-  });
-  boqUpdateSummary();
+  BOQ_TEMPLATE.forEach(sec => boqUpdateSecTotals(sec.id));
 }
 
+function boqGetAllItems() {
+  const items = [];
+  BOQ_TEMPLATE.forEach(sec => {
+    if (sec.items) sec.items.forEach(it => items.push({ ...it, secId: sec.id }));
+    if (sec.subgroups) sec.subgroups.forEach(sg => sg.items.forEach(it => items.push({ ...it, secId: sec.id })));
+  });
+  return items;
+}
+
+/* ── SAVE / LOAD / RESET ── */
+
 async function boqSave() {
+  const removedArr = Array.from(boqRemoved);
   const rec = {
     type: 'boq',
     project: document.getElementById('boq-project')?.value || '',
@@ -3159,6 +3367,8 @@ async function boqSave() {
     date: document.getElementById('boq-date')?.value || '',
     currency: document.getElementById('boq-currency')?.value || 'N$',
     data: JSON.parse(JSON.stringify(boqData)),
+    removed: removedArr,
+    custom: JSON.parse(JSON.stringify(boqCustom)),
     savedDate: new Date().toISOString(),
     title: document.getElementById('boq-project')?.value || 'BOQ',
     calcLabel: 'Bill of Quantities',
@@ -3170,20 +3380,19 @@ async function boqSave() {
 }
 
 function boqReset() {
-  showConfirm('Reset BOQ', 'Clear all quantities and rates?', () => {
-    boqData = {};
+  showConfirm('Reset BOQ', 'Clear all quantities, rates, and custom items?', () => {
+    boqData = {}; boqCustom = {}; boqRemoved = new Set(); _boqUid = 0;
     boqRenderSections();
-    toast('BOQ cleared.', 'info');
+    toast('BOQ reset.', 'info');
   });
 }
 
 function boqExportPDF() {
-  // Expand all sections before printing
   document.querySelectorAll('.boq-section').forEach(s => s.classList.add('open'));
   setTimeout(() => window.print(), 150);
 }
 
-/* ── EXCEL EXPORT via SheetJS ── */
+/* ── EXCEL EXPORT ── */
 function boqExportExcel() {
   if (typeof XLSX === 'undefined') {
     toast('Loading Excel library...', 'info');
@@ -3191,9 +3400,7 @@ function boqExportExcel() {
     s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
     s.onload = () => _doBoqExcelExport();
     document.head.appendChild(s);
-  } else {
-    _doBoqExcelExport();
-  }
+  } else { _doBoqExcelExport(); }
 }
 
 function _doBoqExcelExport() {
@@ -3203,82 +3410,68 @@ function _doBoqExcelExport() {
   const contractor = document.getElementById('boq-contractor')?.value || '';
   const preparer = document.getElementById('boq-preparer')?.value || '';
   const date = document.getElementById('boq-date')?.value || '';
-
   const wb = XLSX.utils.book_new();
   const wsData = [];
-
-  // Header block
   wsData.push(['BILL OF QUANTITIES']);
-  wsData.push([`Project: ${project}`]);
-  wsData.push([`Owner: ${owner}`]);
-  wsData.push([`Contractor: ${contractor}`]);
-  wsData.push([`Prepared By: ${preparer}`]);
-  wsData.push([`Date: ${date}`]);
-  wsData.push([]);
+  wsData.push([`Project: ${project}`]); wsData.push([`Owner: ${owner}`]);
+  wsData.push([`Contractor: ${contractor}`]); wsData.push([`Prepared By: ${preparer}`]);
+  wsData.push([`Date: ${date}`]); wsData.push([]);
 
+  let grand = 0;
   BOQ_TEMPLATE.forEach(sec => {
-    // Section header
     wsData.push([`${sec.id} - ${sec.title.toUpperCase()}`, '', 'UNIT', 'QTY', 'RATE', `AMOUNT (${cur})`]);
     if (sec.preamble) wsData.push(['', sec.preamble]);
 
-    const renderItemRow = (it) => {
+    const pushTpl = (it) => {
+      if (boqRemoved.has(sec.id + '|' + it.no)) return;
       const d = boqData[it.no] || {};
-      const qty = parseFloat(d.qty) || 0;
-      const rate = parseFloat(d.rate) || 0;
-      const amount = qty * rate;
-      wsData.push([it.no, it.desc, it.unit, qty || '', rate || '', amount || '']);
+      const qty = parseFloat(d.qty)||0, rate = parseFloat(d.rate)||0;
+      wsData.push([it.no, it.desc, it.unit, qty||'', rate||'', qty*rate||'']);
+    };
+    const pushCustom = (ci) => {
+      const d = boqData[ci.uid] || {};
+      const qty = parseFloat(d.qty)||0, rate = parseFloat(d.rate)||0;
+      wsData.push([ci.no||'', ci.desc||'', ci.unit||'', qty||'', rate||'', qty*rate||'']);
     };
 
-    if (sec.items) sec.items.forEach(renderItemRow);
+    if (sec.items) {
+      sec.items.forEach(pushTpl);
+      (boqCustom[sec.id] || []).filter(ci => !ci.sgName).forEach(pushCustom);
+    }
     if (sec.subgroups) {
       sec.subgroups.forEach(sg => {
         wsData.push(['', `● ${sg.name}`]);
-        sg.items.forEach(renderItemRow);
+        sg.items.forEach(pushTpl);
+        (boqCustom[sec.id] || []).filter(ci => ci.sgName === sg.name).forEach(pushCustom);
       });
     }
-
-    // Section total
     const t = boqSectionTotal(sec);
-    wsData.push(['', `Total Amount — ${sec.title}`, '', '', '', t]);
-    wsData.push([]);
+    grand += t;
+    wsData.push(['', `Total Amount — ${sec.title}`, '', '', '', t]); wsData.push([]);
   });
-
-  // Grand total
-  wsData.push([]);
-  let grand = 0;
-  BOQ_TEMPLATE.forEach(sec => { grand += boqSectionTotal(sec); });
-  wsData.push(['', 'GRAND TOTAL', '', '', '', grand]);
+  wsData.push([]); wsData.push(['', 'GRAND TOTAL', '', '', '', grand]);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-  // Column widths
-  ws['!cols'] = [
-    { wch: 8 }, { wch: 58 }, { wch: 8 }, { wch: 10 }, { wch: 12 }, { wch: 16 }
-  ];
-
+  ws['!cols'] = [{wch:8},{wch:58},{wch:8},{wch:10},{wch:12},{wch:16}];
   XLSX.utils.book_append_sheet(wb, ws, 'BOQ');
 
-  // Summary sheet
-  const sumData = [['SECTION SUMMARY']];
-  sumData.push(['No.', 'Section', `Amount (${cur})`]);
-  BOQ_TEMPLATE.forEach(sec => {
-    sumData.push([sec.id, sec.title, boqSectionTotal(sec)]);
-  });
-  sumData.push([]);
-  sumData.push(['', 'GRAND TOTAL', grand]);
+  const sumData = [['SECTION SUMMARY'], ['No.', 'Section', `Amount (${cur})`]];
+  BOQ_TEMPLATE.forEach(sec => sumData.push([sec.id, sec.title, boqSectionTotal(sec)]));
+  sumData.push([], ['', 'GRAND TOTAL', grand]);
   const wsSummary = XLSX.utils.aoa_to_sheet(sumData);
-  wsSummary['!cols'] = [{ wch:6 }, { wch:40 }, { wch:18 }];
+  wsSummary['!cols'] = [{wch:6},{wch:40},{wch:18}];
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
 
   XLSX.writeFile(wb, `BOQ_${project.replace(/[^a-zA-Z0-9]/g,'_')}_${date||'draft'}.xlsx`);
   toast('Excel file exported.', 'success');
 }
 
-/* Load saved BOQ */
 async function boqLoadSaved(id) {
   const rec = await db.calculations.get(id);
   if (!rec || rec.type !== 'boq') return;
   boqData = rec.data || {};
+  boqCustom = rec.custom || {};
+  boqRemoved = new Set(rec.removed || []);
   if (rec.project) document.getElementById('boq-project').value = rec.project;
   if (rec.owner) document.getElementById('boq-owner').value = rec.owner;
   if (rec.contractor) document.getElementById('boq-contractor').value = rec.contractor;
