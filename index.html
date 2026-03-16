@@ -721,11 +721,76 @@ body {
 
 /* PRINT */
 @media print {
-  #header, #bottom-nav, .no-print { display: none !important; }
-  #content { padding: 0; }
-  body { background: white; color: black; }
-  .card { break-inside: avoid; border: 1px solid #ccc; }
+  /* ── RESET LAYOUT FOR PRINT ── */
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { height: auto !important; overflow: visible !important; background: white !important; color: #000 !important; }
+
+  /* Hide all chrome */
+  #header, #bottom-nav, #sidebar, #sidebar-overlay,
+  #desktop-toggle, .no-print,
+  .boq-actions, .boq-add-row-btn,
+  .header-actions, .sidebar-footer { display: none !important; }
+
+  /* Kill the fixed-height flex app shell */
+  #app { display: block !important; height: auto !important; overflow: visible !important; }
+  #content { height: auto !important; overflow: visible !important; padding: 0 !important; }
+  .content-inner { max-width: 100% !important; padding: 12px !important; }
+
+  /* Show only the active tab — but override for inspection print */
+  .tab { display: none !important; }
+  .tab.active { display: block !important; }
+
+  /* Inspection-specific print rules */
+  #insp-list-view { display: none !important; }
+  #insp-form-view { display: block !important; }
+
+  /* Expand all checklist sections */
+  .checklist-items { display: block !important; }
+  .checklist-section-head .cs-chevron { display: none; }
+
+  /* Cards and checklist styling */
+  .card { break-inside: avoid; border: 1px solid #ccc; margin-bottom: 10px; background: white !important; }
+  .checklist-section { break-inside: avoid; border: 1px solid #ccc; margin-bottom: 8px; }
+  .checklist-section-header { background: #f5f5f5 !important; border-bottom: 1px solid #ccc; }
+  .checklist-item { border-bottom: 1px solid #eee; padding: 8px 12px; }
+  .ci-comment { display: block !important; border: 1px solid #ccc; margin-top: 4px; padding: 4px 8px; font-size: 11px; color: #444; }
+
+  /* Radio buttons — show status as text */
+  .radio-btn { padding: 3px 7px; border: 1px solid #ccc; border-radius: 4px; font-size: 11px; }
+  .radio-btn.pass.active { background: #d4edda !important; border-color: #28a745 !important; color: #155724 !important; }
+  .radio-btn.fail.active { background: #f8d7da !important; border-color: #dc3545 !important; color: #721c24 !important; }
+  .radio-btn.na.active  { background: #e2e3e5 !important; border-color: #6c757d !important; color: #383d41 !important; }
+
+  /* Summary and result boxes */
+  .insp-summary { background: #f9f9f9 !important; border: 1px solid #ccc; }
+  .is-val.pass { color: #28a745 !important; }
+  .is-val.fail { color: #dc3545 !important; }
+  .is-val.na   { color: #6c757d !important; }
+  #overall-status { border: 1px solid #ccc !important; background: #f5f5f5 !important; color: #000 !important; }
+
+  /* Form inputs — show as plain text boxes */
+  .form-input, .form-select, .form-textarea {
+    border: 1px solid #ccc !important;
+    background: white !important;
+    color: #000 !important;
+    -webkit-appearance: none;
+  }
+
+  /* Section title lines */
+  .section-title { color: #333 !important; }
+  .section-title::after { background: #ccc; }
+
+  /* Back button and action buttons hidden */
+  .btn { display: none !important; }
+  /* But keep the form title visible */
+  #insp-form-title { display: block !important; font-size: 20px; margin-bottom: 12px; color: #000 !important; }
+
+  /* Card icon area */
+  .card-icon { background: #eee !important; }
+  .card-title { color: #000 !important; }
+  .form-label { color: #333 !important; }
 }
+
 
 /* desktop-toggle hidden on mobile */
 #desktop-toggle { display: none; }
@@ -2526,7 +2591,19 @@ function exportInspectionCSV() {
   toast('Inspection exported.', 'success');
 }
 
-function printInspection() { window.print(); }
+function printInspection() {
+  // Ensure inspection tab is the active tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-inspection').classList.add('active');
+  // Expand all checklist sections
+  document.querySelectorAll('.checklist-section').forEach(s => s.classList.add('open'));
+  // Show comment fields for all failed items
+  document.querySelectorAll('.ci-comment').forEach(c => {
+    const row = c.closest('.checklist-item');
+    if (row && row.querySelector('.radio-btn.fail.active')) c.classList.add('visible');
+  });
+  setTimeout(() => window.print(), 150);
+}
 
 /* ============================================================
    SAVE MODAL
